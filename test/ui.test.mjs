@@ -7,6 +7,15 @@ const uiSource = normalizeLineEndings(await readFile(new URL('../ui/index.html',
 const clientSource = normalizeLineEndings(await readFile(new URL('../lib/client.js', import.meta.url), 'utf8'));
 const harnessSource = normalizeLineEndings(await readFile(new URL('../scripts/ui-harness.mjs', import.meta.url), 'utf8'));
 
+test('已安装页说明旧授权检测的作用域，并为非健康连接提供重新连接入口', () => {
+  assert.ok(uiSource.includes('>检测企查查旧授权</button>'), '按钮文案应限定为企查查旧授权');
+  assert.ok(!uiSource.includes('>检测旧插件</button>'), '不应保留含义过宽的旧文案');
+  assert.ok(uiSource.includes('title="扫描企查查旧 OAuth 插件'), '按钮应通过 title 说明扫描范围与不删除原凭据');
+  assert.ok(uiSource.includes("window.__mcp.reconnect('${key}')"), '已安装列表应提供重新连接入口');
+  assert.ok(uiSource.includes("call('reconnect', { key }"), '重新连接应调用同源 API');
+  assert.ok(uiSource.includes("'🔄 重新连接'"), '状态未知且已配置的详情主按钮应改为重新连接');
+});
+
 test('授权和本地启动错误不追加 API Key、JSON 或 URL 建议', () => {
   const start = uiSource.indexOf('  function guidanceFor(');
   const end = uiSource.indexOf('  function showModalError(', start);
