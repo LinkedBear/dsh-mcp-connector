@@ -137,6 +137,20 @@ test('startup discovery guard remains active across pagination', { timeout: 7000
   } finally { await c.cleanup(); }
 });
 
+test('guard-only ELECTRON_RUN_AS_NODE never reaches the real server', { timeout: 7000 }, async () => {
+  const probe = "process.stdout.write(JSON.stringify({ asNode: process.env.ELECTRON_RUN_AS_NODE ?? null }) + String.fromCharCode(10));";
+  const c = launch('normal', {
+    command: process.execPath,
+    commandArgs: ['-e', probe],
+    env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
+    timeout: 2000,
+  });
+  try {
+    c.send('initialize');
+    assert.equal((await within(c.reply())).asNode, null);
+  } finally { await c.cleanup(); }
+});
+
 test('missing executable fails without logging the command or credentials', { timeout: 7000 }, async () => {
   const c = launch('normal', { command: 'synthetic-secret-missing-mcp-fixture' });
   try {
