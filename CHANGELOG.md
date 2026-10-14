@@ -2,7 +2,7 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)；首个公开版本从 `0.1.0` 开始。
 
-## [Unreleased]
+## [0.2.72] - 2026-10-14
 
 ### Fixed
 
