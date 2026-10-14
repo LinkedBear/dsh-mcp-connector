@@ -386,6 +386,16 @@
     transition: border-color .15s;
   }
   .modal input:focus, .modal textarea:focus, .modal select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-light); }
+  /* 页面内确认框（替代原生 confirm）。原生 confirm 在桌面壳里走 Win32 TaskDialog，
+     关闭后不会把键盘焦点还给页面，用户必须切一次窗口才能继续输入；因此所有确认
+     都改走这里。z-index 高于 .modal(200)，因为多处确认是在模态内部触发的。 */
+  .confirm-mask { position: fixed; inset: 0; background: rgba(0,0,0,0.52); display: none; align-items: center; justify-content: center; z-index: 300; }
+  .confirm-mask.show { display: flex; }
+  .confirm-box { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 22px 24px; width: 460px; max-width: 92vw; box-shadow: var(--shadow-lg); }
+  .confirm-box h3 { margin: 0 0 12px; font-size: 15px; }
+  .confirm-message { margin: 0; white-space: pre-wrap; word-break: break-word; color: var(--text-2); font-size: 13px; line-height: 1.6; }
+  .confirm-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 18px; }
+
   .modal .m-actions {
     position: sticky; bottom: 0; z-index: 2;
     display: flex; gap: 8px; justify-content: flex-end;
@@ -510,6 +520,17 @@
 
 <div class="modal-mask" id="modalMask" aria-hidden="true">
   <div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title"></div>
+</div>
+
+<div class="confirm-mask" id="confirmMask" aria-hidden="true">
+  <div class="confirm-box" id="confirmBox" role="alertdialog" aria-modal="true" aria-labelledby="confirm-title">
+    <h3 id="confirm-title"></h3>
+    <p class="confirm-message" id="confirm-message"></p>
+    <div class="confirm-actions">
+      <button class="btn ghost" type="button" id="confirm-cancel"></button>
+      <button class="btn" type="button" id="confirm-ok"></button>
+    </div>
+  </div>
 </div>
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
@@ -904,7 +925,11 @@
       select.disabled = false;
       return;
     }
-    if (!confirm(`${preview.message}。确认应用？`)) {
+    if (!await confirmDialog({
+      title: '应用治理策略',
+      message: `${preview.message}。确认应用？`,
+      confirmLabel: '应用',
+    })) {
       select.value = select.dataset.currentEffect || 'inherit';
       select.disabled = false;
       return;
@@ -919,7 +944,11 @@
   async function rollbackLatestPolicy() {
     const rollbackRevision = Number($('#policy-rollback').dataset.rollbackRevision);
     if (!Number.isInteger(rollbackRevision) || !detailGovernance) return;
-    if (!confirm(`确认恢复 revision=${rollbackRevision} 的策略内容？`)) return;
+    if (!await confirmDialog({
+      title: '恢复策略历史',
+      message: `确认恢复 revision=${rollbackRevision} 的策略内容？`,
+      confirmLabel: '恢复',
+    })) return;
     const result = await call('rollbackPolicy', { rollbackRevision, expectedRevision: detailGovernance.revision });
     showToast(result.message, result.ok);
     if (result.ok && detailConnector) await window.__mcp.showDetail(detailConnector.id);
@@ -1072,6 +1101,74 @@
     lastModalFocus = null;
   }
   $('#modalMask').addEventListener('click', (e) => { if (e.target.id === 'modalMask') closeModal(); });
+
+  /**
+   * 页面内确认框，替代原生 confirm()，返回 Promise<boolean>。
+   *
+   * 为什么必须换掉原生 confirm：桌面壳（Electron）里 confirm 走 Win32 TaskDialog，
+   * 关闭后 Electron 不会把键盘焦点还给渲染进程——document.hasFocus() 持续 false，
+   * 输入框点不中也打不了字，用户必须切一次窗口才能恢复。上游 electron#41602 已
+   * not_planned 关闭、修复 PR 未合并，所以只能在插件侧绕开。
+   *
+   * 注意 confirm 是同步返回布尔值的，自绘框必然异步，因此没有"覆盖 window.confirm"
+   * 这种省事做法（那样"取消"会永远失效），只能让调用点逐个 await。
+   *
+   * 复用独立的 #confirmMask 而不是现有 #modal：多处确认（范围变更、快照恢复等）
+   * 是在 #modal 内部触发的，复用会把正在填写的表单直接清空。
+   */
+  let activeConfirm = null;
+
+  function closeConfirm(result) {
+    if (!activeConfirm) return;
+    const pending = activeConfirm;
+    activeConfirm = null;
+    $('#confirmMask').classList.remove('show');
+    $('#confirmMask').setAttribute('aria-hidden', 'true');
+    // 焦点还给触发确认的元素，键盘位置不丢（原生框的失焦问题正在于此）。
+    if (pending.returnFocus?.isConnected !== false) pending.returnFocus?.focus?.();
+    pending.resolve(result);
+  }
+
+  function confirmDialog(options = {}) {
+    // 后到的确认先让前一个以"取消"收尾，避免它的 await 永远挂起。
+    if (activeConfirm) closeConfirm(false);
+    const {
+      title = '请确认',
+      message = '',
+      confirmLabel = '确认',
+      cancelLabel = '取消',
+    } = options;
+    const returnFocus = document.activeElement;
+    $('#confirm-title').textContent = title;
+    $('#confirm-message').textContent = message;
+    $('#confirm-ok').textContent = confirmLabel;
+    $('#confirm-cancel').textContent = cancelLabel;
+    $('#confirmMask').classList.add('show');
+    $('#confirmMask').setAttribute('aria-hidden', 'false');
+    const promise = new Promise((resolve) => { activeConfirm = { resolve, returnFocus }; });
+    setTimeout(() => $('#confirm-cancel')?.focus(), 0);
+    return promise;
+  }
+
+  $('#confirm-ok').addEventListener('click', () => closeConfirm(true));
+  $('#confirm-cancel').addEventListener('click', () => closeConfirm(false));
+  $('#confirmMask').addEventListener('click', (e) => { if (e.target.id === 'confirmMask') closeConfirm(false); });
+  $('#confirmMask').addEventListener('keydown', (e) => {
+    // 确认框打开时它是最外层，键事件不能漏给底下的模态（尤其是 Escape，否则会
+    // 把用户正在填写的表单一起关掉）。
+    e.stopPropagation();
+    if (e.key === 'Escape') { e.preventDefault(); closeConfirm(false); return; }
+    if (e.key === 'Enter') { e.preventDefault(); closeConfirm(true); return; }
+    if (e.key !== 'Tab') return;
+    const focusable = [$('#confirm-cancel'), $('#confirm-ok')].filter((node) => node.disabled !== true);
+    if (!focusable.length) return;
+    e.preventDefault();
+    const index = focusable.indexOf(document.activeElement);
+    const step = e.shiftKey ? -1 : 1;
+    focusable[(index + step + focusable.length) % focusable.length].focus();
+  });
+
+  window.__mcpConfirm = confirmDialog;
 
   function matchesSearch(d) {
     if (!searchQuery) return true;
@@ -1716,7 +1813,11 @@
         const toolText = server.tools?.length ? server.tools.join('、') : '工具清单尚未观察';
         return `${server.serverName}：${toolText}`;
       }).join('\n');
-      if (!confirm(`${preview.message}\n${affected}\n\n确认${mode === 'copy' ? '复制到' : '移动到'}所选范围？`)) return;
+      if (!await confirmDialog({
+        title: '变更连接范围',
+        message: `${preview.message}\n${affected}\n\n确认${mode === 'copy' ? '复制到' : '移动到'}所选范围？`,
+        confirmLabel: '应用',
+      })) return;
       setModalBusy(true, '正在应用范围…');
       const result = await call('applyConnectionScope', {
         key: pendingScopeKey,
@@ -1741,7 +1842,11 @@
         const toolText = server.tools?.length ? server.tools.join('、') : '工具清单尚未观察';
         return `${server.serverName}：${toolText}`;
       }).join('\n');
-      if (!confirm(`${preview.message}\n${affected}\n\n确认将全部连接范围恢复到 revision=${scopeRollbackRevision}？`)) return;
+      if (!await confirmDialog({
+        title: '回滚连接范围',
+        message: `${preview.message}\n${affected}\n\n确认将全部连接范围恢复到 revision=${scopeRollbackRevision}？`,
+        confirmLabel: '回滚',
+      })) return;
       const result = await call('rollbackConnectionScope', {
         rollbackRevision: scopeRollbackRevision,
         expectedRevision: preview.detail.baseRevision,
@@ -1755,7 +1860,11 @@
     },
     async changeInjectionMode(key, mode, select) {
       const previous = mode === 'session' ? 'always' : 'session';
-      if (mode === 'session' && !confirm('按会话启用不会断开 MCP 连接，但会在所有会话中默认隐藏该连接的业务工具。\n\n之后需要在对话中明确选择工具才会临时激活，最长 30 分钟。确认继续？')) {
+      if (mode === 'session' && !await confirmDialog({
+        title: '按会话启用',
+        message: '按会话启用不会断开 MCP 连接，但会在所有会话中默认隐藏该连接的业务工具。\n\n之后需要在对话中明确选择工具才会临时激活，最长 30 分钟。确认继续？',
+        confirmLabel: '启用',
+      })) {
         select.value = previous;
         return;
       }
@@ -1767,7 +1876,11 @@
       if (result.ok) await refresh();
     },
     async disconnect(key) {
-      if (!confirm('确认断开该连接？OAuth 授权会被撤销。')) return;
+      if (!await confirmDialog({
+        title: '断开连接',
+        message: '确认断开该连接？OAuth 授权会被撤销。',
+        confirmLabel: '断开',
+      })) return;
       const r = await call('disconnect', { key });
       showToast(r.message, r.ok);
       await refresh();
@@ -1796,7 +1909,11 @@
       const preview = await call('previewSnapshot', { snapshotId });
       if (!preview.ok) { showToast(preview.message, false); return; }
       if (!preview.detail?.restorable) { showToast(preview.message, false); return; }
-      if (!confirm(`${preview.message}。确认恢复？恢复过程中任一 Server 失败会整体回滚。`)) return;
+      if (!await confirmDialog({
+        title: '恢复配置快照',
+        message: `${preview.message}。确认恢复？恢复过程中任一 Server 失败会整体回滚。`,
+        confirmLabel: '恢复',
+      })) return;
       setModalBusy(true, '正在原子恢复…');
       const result = await call('restoreSnapshot', { snapshotId });
       setModalBusy(false);
@@ -1923,7 +2040,11 @@
       closeModal(); showToast(r.message, true); await refresh();
     },
     async migrateLegacy() {
-      if (!confirm('确认把旧企查查 OAuth 授权复制到 MCP连接器？原插件与原凭据会保留；验证新连接后再手动停用旧插件。')) return;
+      if (!await confirmDialog({
+        title: '迁移旧授权',
+        message: '确认把旧企查查 OAuth 授权复制到 MCP连接器？原插件与原凭据会保留；验证新连接后再手动停用旧插件。',
+        confirmLabel: '迁移',
+      })) return;
       const r = await call('migrateLegacy', { candidateIds: [] });
       showToast(r.message, r.ok);
       await loadInstalled();
@@ -1935,7 +2056,11 @@
         return;
       }
       const ids = (preview.detail.items || []).filter((item) => item.migratable && !item.alreadyMigrated).map((item) => item.id);
-      if (!confirm(`检测到 ${ids.length} 组可迁移授权。确认复制到 MCP连接器？原插件与原凭据会保留。`)) return;
+      if (!await confirmDialog({
+        title: '迁移旧授权',
+        message: `检测到 ${ids.length} 组可迁移授权。确认复制到 MCP连接器？原插件与原凭据会保留。`,
+        confirmLabel: '迁移',
+      })) return;
       const result = await call('migrateLegacy', { candidateIds: ids });
       showToast(result.message, result.ok);
       await loadInstalled();
@@ -2074,7 +2199,11 @@
     },
     async disconnectCurrent() {
       const name = detailConnector?.name || $('#detail-name').textContent;
-      if (!confirm(`确认断开「${name}」的连接？OAuth 授权会被撤销。`)) return;
+      if (!await confirmDialog({
+        title: '断开连接',
+        message: `确认断开「${name}」的连接？OAuth 授权会被撤销。`,
+        confirmLabel: '断开',
+      })) return;
       // Find connection keys for this connector
       const r = await call('status', workspaceParams());
       if (r.ok) {
