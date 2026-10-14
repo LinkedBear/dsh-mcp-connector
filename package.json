@@ -152,7 +152,8 @@
     "zod": ">=4.1.8 <5"
   },
   "dependencies": {
-    "cross-spawn": "^7.0.6"
+    "cross-spawn": "^7.0.6",
+    "undici": "^6.29.0"
   },
   "devDependencies": {
     "@deepseek-ai/cordis": "^4.0.1",

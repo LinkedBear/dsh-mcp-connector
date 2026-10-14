@@ -167,6 +167,10 @@ Bundle 默认配置位于 `cordis.patch.yml`：
 
 `catalogUrl` 默认通过 jsDelivr CDN 读取公共 [dsh-mcp-connector-registry](https://github.com/duhu2000/dsh-mcp-connector-registry)，支持 ETag/TTL 缓存；主源失败时自动尝试 GitHub raw 备用源，再回退到上次缓存或随包内置目录。jsDelivr 的分支 URL 可能存在缓存延迟，因此 Registry 合并后的新卡片不保证秒级出现。需要离线/私有模式时可将 `catalogUrl` 显式设为空字符串；显式配置其他目录 URL 时不会自动切换到公共备用源。
 
+远程目录请求（包括备用源）支持 `HTTP_PROXY`、`HTTPS_PROXY`、`NO_PROXY` 及其小写形式；同时存在时小写变量优先，未设置 `HTTPS_PROXY` 时 HTTPS 请求使用 `HTTP_PROXY`。代理地址须为 HTTP(S) URL；需要直连的目标可加入 `NO_PROXY`（例如 `localhost,127.0.0.1`）。Node.js 20+ 无需添加 `--use-env-proxy`；此行为不会修改 Host 的全局 fetch dispatcher 或 MCP 传输配置。
+
+代理变量必须存在于正在运行的 DSH 进程中。修改后请完全退出并重启 DSH Desktop，或从已设置变量的终端启动 `dsh web`；修改 Windows 用户环境变量不会更新已有进程。连接器不会读取系统代理设置，也不会猜测本机代理地址。
+
 `showSidebarEntry` 默认为 `true`。用户可在 DSH 插件配置页覆盖该值；关闭后只隐藏侧边栏快捷入口，不停用连接器、已连接 MCP Server 或工具。
 
 `frameAncestors` 默认为 `['self']`，即面板页面（`/mcp-connector/ui/`）的 CSP 只允许同源页面内嵌，是既有行为，不做任何放宽。在桌面壳（Tauri/Electron）里把面板嵌进壳窗口时，祖先源与面板自身不同源，浏览器会以 `Framing '...' violates the following Content Security Policy directive: "frame-ancestors 'self'"` 拦截并导致面板白屏；此时需要由部署方/用户显式追加外壳源：

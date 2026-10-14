@@ -172,6 +172,10 @@ The default bundle configuration is in `cordis.patch.yml`:
 
 Set `catalogUrl` to an empty string for an explicitly offline/private setup. A custom non-default URL is used as-is and does not fall back to the public registry.
 
+Remote catalog requests (including the fallback source) honor `HTTP_PROXY`, `HTTPS_PROXY`, and `NO_PROXY`, as well as their lowercase forms. A lowercase variable takes precedence when both forms are present; HTTPS uses `HTTP_PROXY` when `HTTPS_PROXY` is absent. Use an HTTP(S) proxy URL and configure `NO_PROXY` for destinations that should connect directly (for example, `localhost,127.0.0.1`). This works on Node.js 20+ without `--use-env-proxy` and does not change the Host's global fetch dispatcher or MCP transport settings.
+
+The proxy variables must be present in the running DSH process. After changing them, fully exit and restart DSH Desktop or launch `dsh web` from a shell with those variables set; changing Windows user environment variables does not update an already-running process. The connector does not read OS proxy settings or infer a local proxy address.
+
 `showSidebarEntry` defaults to `true`. Users can override it from the DSH plugin configuration page; turning it off hides only the shortcut and does not disable the connector, connected MCP servers, or tools.
 
 `frameAncestors` defaults to `['self']`: the CSP of the panel page (`/mcp-connector/ui/`) only allows same-origin embedding, which is the existing behaviour and is not relaxed by default. When a desktop shell (Tauri/Electron) embeds the panel, the ancestor origin differs from the panel origin, so the browser blocks it with `Framing '...' violates the following Content Security Policy directive: "frame-ancestors 'self'"` and the panel renders blank. Deployers must opt in explicitly:
