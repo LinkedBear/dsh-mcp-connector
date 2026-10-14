@@ -45,13 +45,13 @@ function createLoadInstalled({ main, status, migration = { ok: true, detail: {} 
   const make = new Function(
     'syncMarketNav', 'main', 'call', 'workspaceParams', 'esc', 'updateAvailableWorkspaces', 'installedItems',
     'scopeRevision', 'scopeRollbackRevision', 'setTabCount', 'markCommunityCtaEligible', 'matchesSearch',
-    'searchQuery', 'rowHtml', 'communityCtaHtml',
+    'searchQuery', 'rowHtml', 'communityCtaHtml', 'beginViewRender', 'isViewRenderCurrent', 'finishViewRender',
     `${loadInstalledSource()}; return loadInstalled;`,
   );
   const loadInstalled = make(
     () => {}, main, call, () => ({}), (value) => String(value ?? ''), () => {}, [],
     0, null, (tab, count) => tabs.push({ tab, count }), () => {}, () => true, '',
-    () => '<div class="row">row</div>', () => '',
+    () => '<div class="row">row</div>', () => '', () => ({}), () => true, () => {},
   );
   return { loadInstalled, calls, tabs };
 }
@@ -82,7 +82,8 @@ test('loadInstalled 的三个 return 出口都还原滚动位置', () => {
 
   assert.equal(lines.at(-1)?.trim(), '}', '抽取到的源码应以 loadInstalled 的收尾大括号结束');
   const tail = lines.slice(0, -1).filter((line) => line.trim() !== '');
-  assert.equal(tail.at(-1)?.trim(), RESTORE_LINE, '正常出口（函数末尾）必须是还原滚动位置');
+  assert.equal(tail.at(-2)?.trim(), RESTORE_LINE, '正常出口在 finally 之前还原滚动位置');
+  assert.equal(tail.at(-1)?.trim(), '} finally { finishViewRender(render); }');
 });
 
 test('scheduleStatusRefresh 保留滚动，其余调用点保持默认归零', () => {
