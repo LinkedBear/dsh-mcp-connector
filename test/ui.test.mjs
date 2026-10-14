@@ -7,6 +7,15 @@ const uiSource = normalizeLineEndings(await readFile(new URL('../ui/index.html',
 const clientSource = normalizeLineEndings(await readFile(new URL('../lib/client.js', import.meta.url), 'utf8'));
 const harnessSource = normalizeLineEndings(await readFile(new URL('../scripts/ui-harness.mjs', import.meta.url), 'utf8'));
 
+test('已安装页说明旧授权检测的作用域，并为非健康连接提供重新连接入口', () => {
+  assert.ok(uiSource.includes('>检测企查查旧授权</button>'), '按钮文案应限定为企查查旧授权');
+  assert.ok(!uiSource.includes('>检测旧插件</button>'), '不应保留含义过宽的旧文案');
+  assert.ok(uiSource.includes('title="扫描企查查旧 OAuth 插件'), '按钮应通过 title 说明扫描范围与不删除原凭据');
+  assert.ok(uiSource.includes("window.__mcp.reconnect('${key}')"), '已安装列表应提供重新连接入口');
+  assert.ok(uiSource.includes("call('reconnect', { key }"), '重新连接应调用同源 API');
+  assert.ok(uiSource.includes("'🔄 重新连接'"), '状态未知且已配置的详情主按钮应改为重新连接');
+});
+
 test('授权和本地启动错误不追加 API Key、JSON 或 URL 建议', () => {
   const start = uiSource.indexOf('  function guidanceFor(');
   const end = uiSource.indexOf('  function showModalError(', start);
@@ -409,7 +418,9 @@ test('市场总数移入页签且正文不再显示冗余操作提示', () => {
 });
 
 test('0 条连接时不显示社区入口', () => {
-  const loadInstalledSource = uiSource.match(/async function loadInstalled\(\) \{[\s\S]*?\n  \}/)?.[0] ?? '';
+  const loadInstalledSource = uiSource.match(/async function loadInstalled\([^)]*\) \{[\s\S]*?\n  \}/)?.[0] ?? '';
+  // 抽取失败必须显式失败，避免签名变化导致测试静默跳过。
+  assert.notEqual(loadInstalledSource, '', '必须成功抽取 loadInstalled，不能跳过回归断言');
   const emptyState = loadInstalledSource.indexOf('if (!items.length)');
   const eligibility = loadInstalledSource.indexOf('markCommunityCtaEligible();');
   assert.ok(emptyState >= 0 && eligibility > emptyState, '空状态必须在 CTA 资格标记之前返回');
