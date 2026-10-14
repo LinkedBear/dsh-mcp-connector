@@ -604,6 +604,8 @@
   let detailGovernance = null;
   let detailNeedsReconfigure = false;
   let detailFailureState = '';
+  // 状态未知且已有连接记录时，详情主按钮改为「重新连接」并按 key 触发一次重新建连
+  let detailReconnectKey = '';
   let toolRenderLimit = 50;
   let detailLoadId = 0;
   const MARKET_SECTION_PREVIEW_LIMIT = 4;
@@ -795,6 +797,11 @@
     await refresh();
     if (!reloadOpenDetail || detailLoadId !== openDetailLoadId || !isDetailOpenFor(connectorId)) return;
     await window.__mcp.showDetail(connectorId);
+  }
+
+  // 详情主按钮：状态未知且已有连接记录时优先提供「重新连接」（Host 侧可能已放弃重连）
+  function detailTryLabel(fallback) {
+    return detailReconnectKey ? '🔄 重新连接' : fallback;
   }
 
   function promptVariableNames(text) {
@@ -1436,14 +1443,14 @@
     const pendingMigration = migration.ok ? migration.detail?.pendingCount || 0 : 0;
     const migrationHtml = pendingMigration > 0 ? `<div class="migration-banner"><div class="copy"><strong>发现旧企查查 MCP 授权</strong>可安全复制 ${pendingMigration} 组授权到 MCP连接器；不会删除旧插件或原凭据。</div><button class="btn" type="button" onclick="window.__mcp.migrateLegacy()">迁移</button></div>` : '';
     if (!items.length) {
-      main.innerHTML = `${migrationHtml}<div class="stats"><span class="count">可从旧企查查 OAuth 插件复制已有授权</span><button class="btn ghost" id="config-backup" type="button" onclick="window.__mcp.openConfigBackup()">配置备份</button><button class="btn ghost" type="button" onclick="window.__mcp.scanLegacy()">检测旧插件</button></div><div class="empty">还没有连接任何 MCP · 到「市场」里连接一个吧</div>`;
+      main.innerHTML = `${migrationHtml}<div class="stats"><span class="count">可从旧企查查 OAuth 插件复制已有授权</span><button class="btn ghost" id="config-backup" type="button" onclick="window.__mcp.openConfigBackup()">配置备份</button><button class="btn ghost" type="button" title="扫描企查查旧 OAuth 插件；不会删除旧插件或原凭据" onclick="window.__mcp.scanLegacy()">检测企查查旧授权</button></div><div class="empty">还没有连接任何 MCP · 到「市场」里连接一个吧</div>`;
       if (preserveScroll) main.scrollTop = previousScrollTop;
       return;
     }
     markCommunityCtaEligible();
     const filtered = items.filter(matchesSearch);
     const rollbackDisabled = scopeRollbackRevision === null ? 'disabled' : '';
-    main.innerHTML = `${migrationHtml}<div class="stats"><span class="count">共 <strong>${filtered.length}</strong> 条连接${searchQuery ? ` · 搜索「${esc(searchQuery)}」` : ''} · 作用域 revision=${scopeRevision}</span><button class="btn ghost" id="scope-rollback" type="button" ${rollbackDisabled} onclick="window.__mcp.rollbackScope()">回滚上次范围变更</button><button class="btn ghost" id="config-backup" type="button" onclick="window.__mcp.openConfigBackup()">配置备份</button><button class="btn ghost" type="button" onclick="window.__mcp.scanLegacy()">检测旧插件</button></div><div class="rows">${filtered.map(rowHtml).join('')}</div>${communityCtaHtml()}`;
+    main.innerHTML = `${migrationHtml}<div class="stats"><span class="count">共 <strong>${filtered.length}</strong> 条连接${searchQuery ? ` · 搜索「${esc(searchQuery)}」` : ''} · 作用域 revision=${scopeRevision}</span><button class="btn ghost" id="scope-rollback" type="button" ${rollbackDisabled} onclick="window.__mcp.rollbackScope()">回滚上次范围变更</button><button class="btn ghost" id="config-backup" type="button" onclick="window.__mcp.openConfigBackup()">配置备份</button><button class="btn ghost" type="button" title="扫描企查查旧 OAuth 插件；不会删除旧插件或原凭据" onclick="window.__mcp.scanLegacy()">检测企查查旧授权</button></div><div class="rows">${filtered.map(rowHtml).join('')}</div>${communityCtaHtml()}`;
     if (preserveScroll) main.scrollTop = previousScrollTop;
   }
 
@@ -1479,6 +1486,7 @@
       ${canEditConfiguration ? `<button class="btn ghost" type="button" onclick="window.__mcp.openEditor('${key}')">编辑配置</button>` : ''}
       ${canRename ? `<button class="btn ghost" type="button" onclick="window.__mcp.openRename('${key}')">重命名</button>` : ''}
       ${enabled ? `<button class="btn ghost" type="button" onclick="window.__mcp.showConnectionTools('${key}')">工具</button>` : ''}
+      ${enabled && r.connectionState !== 'healthy' ? `<button class="btn ghost" type="button" title="重新建立 Host 侧条目并复检：不改配置、凭据、范围或注入模式" onclick="window.__mcp.reconnect('${key}')">重新连接</button>` : ''}
       <button class="btn ghost" type="button" onclick="window.__mcp.openScope('${key}')">范围</button>
       <button class="btn danger" onclick="window.__mcp.disconnect('${key}')">断开</button>
     </div>`;
@@ -1858,6 +1866,12 @@
     toggle(key, enabled) {
       call('setEnabled', { key, enabled }).then((r) => showToast(r.message, r.ok));
     },
+    async reconnect(key) {
+      const r = await call('reconnect', { key }, { timeoutMs: 30_000 });
+      showToast(r.message, r.ok);
+      if (r.detail?.connectorId) await refreshConnectionUi(r.detail.connectorId);
+      else await refresh();
+    },
     async changeInjectionMode(key, mode, select) {
       const previous = mode === 'session' ? 'always' : 'session';
       if (mode === 'session' && !await confirmDialog({
@@ -2081,6 +2095,7 @@
       const incomplete = d.connected?.length > 0 && d.connectionComplete === false;
       detailFailureState = incomplete ? 'incomplete' : (d.connectionState || '');
       detailNeedsReconfigure = incomplete || ['reauth', 'recovering', 'unavailable'].includes(detailFailureState);
+      detailReconnectKey = !incomplete && detailFailureState === 'unknown' && d.connected?.length > 0 ? d.connected[0] : '';
       const loadId = ++detailLoadId;
       $('#detail-icon').innerHTML = isImageIcon(d.icon)
         ? `<img src="${esc(d.icon)}" alt="" onerror="this.parentElement.innerHTML='🔌';" />`
@@ -2108,9 +2123,9 @@
       if (d.connectionKey) $('#detail-disconnect-btn').style.display = 'none';
       $('#detail-try-btn').style.display = d.connectionKey ? 'none' : '';
       const needsCredential = ['bearer', 'api-key'].includes(d.authMode);
-      $('#detail-try-btn').textContent = detailNeedsReconfigure
+      $('#detail-try-btn').textContent = detailTryLabel(detailNeedsReconfigure
         ? detailFailureState === 'incomplete' ? (d.authMode === 'oauth2-pkce' ? t('upgradeOauth') : t('completeSetup')) : d.authMode === 'oauth2-pkce' && detailFailureState === 'reauth' ? '🔐 重新授权' : needsCredential && detailFailureState === 'reauth' ? t('reconfigureCredential') : '🔄 重新检查'
-        : d.connected?.length > 0 ? t('try') : needsCredential ? t('configureConnect') : t('connectTry');
+        : d.connected?.length > 0 ? t('try') : needsCredential ? t('configureConnect') : t('connectTry'));
       if (!d.connected?.length && !d.toolsSnapshot?.length) {
         $('#tools-summary').textContent = '连接后查看工具';
         $('#detail-tools').innerHTML = '<div class="tools-empty">连接后可读取服务端工具清单</div>';
@@ -2130,6 +2145,7 @@
       if (!toolsResult.ok) {
         detailFailureState = toolsResult.detail?.connectionState || detailFailureState || 'unavailable';
         detailNeedsReconfigure = true;
+        detailReconnectKey = detailFailureState === 'unknown' && d.connected?.length > 0 ? d.connected[0] : '';
         const diagnostic = toolsResult.detail?.diagnostic;
         $('#tools-summary').textContent = detailFailureState === 'unknown' ? '工具状态未知' : '工具加载失败';
         const failureHtml = `<div class="tools-error">${esc(toolsResult.message)}${diagnostic ? `<br><br>${esc(diagnostic.stageLabel || diagnostic.stage)} · ${esc(diagnostic.code)}：${esc(diagnostic.message)}<br>建议：${esc(diagnostic.action)}${diagnostic.lastSuccessfulAt ? `<br>最近成功：${esc(new Date(diagnostic.lastSuccessfulAt).toLocaleString('zh-CN', { hour12: false }))}` : ''}` : ''}</div>`;
@@ -2144,19 +2160,20 @@
           ? (d.authMode === 'oauth2-pkce' ? '授权已失效' : '凭据已失效')
           : detailFailureState === 'unknown' ? '状态尚未确认' : '当前连接异常';
         $('#detail-vendor').textContent = d.vendor ? `${d.vendor} · ${failureLabel}` : failureLabel;
-        $('#detail-try-btn').textContent = d.authMode === 'oauth2-pkce' && detailFailureState === 'reauth'
+        $('#detail-try-btn').textContent = detailTryLabel(d.authMode === 'oauth2-pkce' && detailFailureState === 'reauth'
           ? '🔐 重新授权'
-          : needsCredential && detailFailureState === 'reauth' ? t('reconfigureCredential') : '🔄 重新检查';
+          : needsCredential && detailFailureState === 'reauth' ? t('reconfigureCredential') : '🔄 重新检查');
         renderPromptPage();
         return;
       }
       detailFailureState = incomplete ? 'incomplete' : (toolsResult.detail?.connectionState || 'healthy');
       detailNeedsReconfigure = incomplete;
+      detailReconnectKey = detailFailureState === 'unknown' && d.connected?.length > 0 ? d.connected[0] : '';
       const connectedLabel = incomplete
         ? `待补充 ${d.missingServers?.length || 1} 个服务`
         : `${detailFailureState === 'degraded' ? '部分服务可用' : '已连接'} ${d.connected?.length || 0} 个服务`;
       $('#detail-vendor').textContent = d.vendor ? `${d.vendor} · ${connectedLabel}` : connectedLabel;
-      $('#detail-try-btn').textContent = incomplete ? (d.authMode === 'oauth2-pkce' ? t('upgradeOauth') : t('completeSetup')) : t('try');
+      $('#detail-try-btn').textContent = detailTryLabel(incomplete ? (d.authMode === 'oauth2-pkce' ? t('upgradeOauth') : t('completeSetup')) : t('try'));
       renderPromptPage();
       detailToolServers = toolsResult.detail?.servers || [];
       updateToolsSummary();
@@ -2253,6 +2270,12 @@
     }
   });
   $('#detail-try-btn').addEventListener('click', async () => {
+    if (detailReconnectKey) {
+      const key = detailReconnectKey;
+      detailReconnectKey = '';
+      await window.__mcp.reconnect(key);
+      return;
+    }
     if (detailNeedsReconfigure) {
       if (detailFailureState === 'incomplete' && ['bearer', 'api-key'].includes(detailConnector?.authMode)) {
         openAddConnection('manual', detailConnector);
@@ -2349,8 +2372,9 @@
         : available > 0 ? '部分服务可用' : '当前连接异常';
       detailFailureState = pending ? 'unknown' : available > 0 ? 'healthy' : 'unavailable';
       detailNeedsReconfigure = !pending && available === 0;
+      detailReconnectKey = '';
       $('#detail-vendor').textContent = detailConnector.vendor ? `${detailConnector.vendor} · ${label}` : label;
-      $('#detail-try-btn').textContent = detailNeedsReconfigure ? '🔄 重新检查' : t('try');
+      $('#detail-try-btn').textContent = detailTryLabel(detailNeedsReconfigure ? '🔄 重新检查' : t('try'));
     }
   }
 

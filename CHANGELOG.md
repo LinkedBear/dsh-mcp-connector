@@ -12,6 +12,13 @@
 ### Fixed
 
 - `normalizeConnectorDescriptor` 不再静默丢弃 HTTP Server 上的 `oauthResource` / `oauthTokenEnv`：前者现在生效，后者由目录审计显式拒绝，描述文件作者不会在无任何报错的情况下被忽略。
+- 「已安装」页为未处于“已连接”的连接提供「重新连接」：重建 Host 侧条目并在有界时间内等待 stdio 工具重新注册，不修改配置、凭据、范围或注入模式；对话工具同步新增 `mcp_connector_reconnect`。
+
+### Changed
+
+- 「检测旧插件」改名为「检测企查查旧授权」，并说明扫描范围与“不会删除旧插件或原凭据”。
+
+- 桌面宿主（Electron 内嵌 DSH）下启动 stdio 连接不再必然失败：以 `process.execPath` 启动守卫时注入 `ELECTRON_RUN_AS_NODE`，守卫再把该变量从真实 server 的子进程环境中移除（0.2.70 的 #130 只覆盖了 CLI 宿主）。
 
 ## [0.2.70] - 2026-10-08
 
