@@ -186,7 +186,11 @@ test('确认框：Escape 取消、Enter 确认、点遮罩取消，关闭后遮�
   const second = makeConfirmDialog();
   const enter = second.confirmDialog({ title: 'T', message: 'M' });
   second.dom.fire('confirmMask', 'keydown', second.dom.keyEvent('Enter').event);
-  assert.equal(await enter, true, 'Enter 应等价于确认');
+  assert.equal(await enter, false, '默认聚焦取消时 Enter 必须取消');
+  const confirmed = second.confirmDialog({ title: 'T', message: 'M' });
+  second.dom.byId.get('confirm-ok').focus();
+  second.dom.fire('confirmMask', 'keydown', second.dom.keyEvent('Enter').event);
+  assert.equal(await confirmed, true, '只有聚焦确认时 Enter 才确认');
 
   const third = makeConfirmDialog();
   const masked = third.confirmDialog({ title: 'T', message: 'M' });

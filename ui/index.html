@@ -1153,7 +1153,7 @@
     $('#confirmMask').classList.add('show');
     $('#confirmMask').setAttribute('aria-hidden', 'false');
     const promise = new Promise((resolve) => { activeConfirm = { resolve, returnFocus }; });
-    setTimeout(() => $('#confirm-cancel')?.focus(), 0);
+    $('#confirm-cancel')?.focus();
     return promise;
   }
 
@@ -1165,7 +1165,11 @@
     // 把用户正在填写的表单一起关掉）。
     e.stopPropagation();
     if (e.key === 'Escape') { e.preventDefault(); closeConfirm(false); return; }
-    if (e.key === 'Enter') { e.preventDefault(); closeConfirm(true); return; }
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      closeConfirm(document.activeElement === $('#confirm-ok'));
+      return;
+    }
     if (e.key !== 'Tab') return;
     const focusable = [$('#confirm-cancel'), $('#confirm-ok')].filter((node) => node.disabled !== true);
     if (!focusable.length) return;

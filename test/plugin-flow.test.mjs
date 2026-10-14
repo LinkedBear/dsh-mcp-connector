@@ -1519,6 +1519,48 @@ test('stdio Host 启动失败时不保存且返回进程诊断', { timeout: 1500
   assert.deepEqual(scopeAfterFailure.bindings, [], '连接提交失败必须回滚作用域绑定');
 });
 
+test('重连保留记录，串行处理停用，并安全报告 provision 失败', async () => {
+  let failReconnect = false;
+  const updates = [];
+  const { ctx, tools, tables, loader, disposers } = makePluginContext({
+    loaderHooks: { onUpdate({ patch }) {
+      updates.push(patch.disabled);
+      if (failReconnect && patch.disabled === false) throw new Error('startup failed');
+    } },
+  });
+  const { apply } = await import('../lib/index.js');
+  try {
+    await apply(ctx, baseConfig());
+    const configured = await tools.defs.get('mcp_connector_configure').execute({
+      name: 'Reconnect', serverName: 'reconnect-test', transport: 'stdio', command: 'node', args: ['server.js'],
+    });
+    assert.equal(configured.ok, true);
+    const key = configured.detail.key;
+    const reconnect = tools.defs.get('mcp_connector_reconnect');
+    const toggle = tools.defs.get('mcp_connector_set_enabled');
+    tools.register({ name: 'mcp__reconnect-test__lookup', parameters: {} });
+    const before = await tables.get('connections').get(key);
+    assert.equal((await reconnect.execute({ key: 'missing' })).ok, false);
+    const result = await reconnect.execute({ key });
+    assert.equal(result.ok, true, result.message);
+    assert.deepEqual(await tables.get('connections').get(key), before);
+    assert.deepEqual(updates.slice(-2), [true, false]);
+    const pending = reconnect.execute({ key });
+    const disabled = toggle.execute({ key, enabled: false });
+    await pending;
+    assert.equal((await disabled).ok, true);
+    assert.equal(loader.entries.get('mcp-' + key).disabled, true);
+    assert.equal((await reconnect.execute({ key })).ok, false);
+    assert.equal((await toggle.execute({ key, enabled: true })).ok, true);
+    failReconnect = true;
+    const failure = await reconnect.execute({ key });
+    assert.equal(failure.ok, false);
+    assert.match(failure.message, /Host 条目可能仍停用/);
+    assert.equal(loader.entries.get('mcp-' + key).disabled, true);
+    assert.equal((await tables.get('connections').get(key)).enabled, true);
+  } finally { disposers.forEach((dispose) => dispose()); }
+});
+
 test('stdio 市场连接、自定义配置与 JSON 导入均透传给 dsh-mcp-client', { timeout: 15000 }, async () => {
   const httpServer = createServer(async (req, res) => {
     for await (const _chunk of req) {}

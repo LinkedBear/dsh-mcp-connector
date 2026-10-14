@@ -2,7 +2,7 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)；首个公开版本从 `0.1.0` 开始。
 
-## [Unreleased]
+## [0.2.71] - 2026-10-14
 
 ### Added
 
@@ -10,6 +10,13 @@
 - Registry 种子新增“Exa·网络搜索”第三方卡片（`registry/connectors/exa-search.json`）：OAuth 一键授权接入 Exa 官方远程 MCP，覆盖语义搜索、全文抓取、高级检索与多步研究 Agent。
 
 ### Fixed
+
+- 修复 Windows 钉钉 CLI 包 bin 字段带 ./ 前缀时无法发现原生程序；精确匹配的旧受管桥接命令在运行时更新到 0.2.71，不覆盖自定义参数。
+- 原生确认框改为页面内对话框，取消默认聚焦且 Enter 尊重焦点，避免误确认和桌面失焦。
+- 已安装列表状态刷新保留滚动位置，回归测试抽取失败时显式报错。
+- 远程目录请求支持 HTTP_PROXY / HTTPS_PROXY / NO_PROXY，不修改宿主全局代理。
+- 桌面嵌入 CSP 允许显式配置可信祖先源，默认仍为 self。
+- 重连与同一连接的停用、删除、修改串行执行；多 Server 注册等待并行，失败明确区分保留配置与 Host 状态。
 
 - `normalizeConnectorDescriptor` 不再静默丢弃 HTTP Server 上的 `oauthResource` / `oauthTokenEnv`：前者现在生效，后者由目录审计显式拒绝，描述文件作者不会在无任何报错的情况下被忽略。
 - 「已安装」页为未处于“已连接”的连接提供「重新连接」：重建 Host 侧条目并在有界时间内等待 stdio 工具重新注册，不修改配置、凭据、范围或注入模式；对话工具同步新增 `mcp_connector_reconnect`。
