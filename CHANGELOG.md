@@ -2,6 +2,13 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)；首个公开版本从 `0.1.0` 开始。
 
+## [0.2.73] - 2026-10-15
+
+### Fixed
+
+- 兼容 DSH 0.2.1-alpha.1 起的 webStartup 服务，同时保留旧宿主 webRuntime 支持，修复面板正文及 API 路由未挂载导致的空白（#151）。两种服务并存时优先使用 webStartup 的可信主机配置，服务卸载时清理路由。
+- 将插件 API 请求失败与 npm 版本查询失败区分提示，不再把路由不可用统一报告为 npm 网络错误。
+
 ## [0.2.72] - 2026-10-14
 
 ### Fixed
