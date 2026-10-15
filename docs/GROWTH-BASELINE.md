@@ -2,7 +2,39 @@
 
 This document records a reproducible growth baseline and the monthly review protocol. Growth targets are operating goals, not product promises.
 
-## Baseline — 2026-08-30 (Asia/Shanghai)
+## Consolidated review — 2026-10-15
+
+This later review does not reconstruct missing historical snapshots or claim causal marketing impact.
+
+| Metric | Observed | Source / period |
+|---|---:|---|
+| First checkpoint week downloads | 6,502 | [npm API](https://api.npmjs.org/downloads/point/2026-09-26:2026-10-02/dsh-mcp-connector), Sep 26–Oct 2 |
+| Second checkpoint week downloads | 6,010 | [npm API](https://api.npmjs.org/downloads/point/2026-10-03:2026-10-09/dsh-mcp-connector), Oct 3–9 |
+| Weekly change | -492 / -7.6% | Equal-length adjacent windows; not unique users or campaign attribution |
+| Stars / forks | 50 / 14 | Repository API snapshot Oct 15; Oct 2/9 snapshots unavailable |
+| Repository views / unique visitors | 2,283 / 1,194 | GitHub Traffic API, Oct 1–14 |
+| Repository clones / unique cloners | 1,314 / 329 | GitHub Traffic API, Oct 1–14; includes automation |
+
+Local DSH Market 1.58.0, Chinese, all categories (~4.7k entries), 24/page:
+both initial and final menus confirmed trailing-30-day downloads / descending /
+all publication dates / all hosts. `mcp`, `MCP连接器`, `连接器`, `MCP管理`,
+`MCP面板`, `MCP授权` each ranked 1. `OAuth` was right-column item 10,
+rank 20 after interleaving the two columns. Evidence was live AX/DOM, not a
+saved screenshot. This is not the latest-market or ecosystem-wide ranking.
+
+The Oct 2/9 checkpoint dates below have passed. No archived scenario-call,
+publication or first-party conversion evidence was found for those dates;
+their placeholders mean **not verified**, not future scheduled work or zero.
+Three tool-workbench screenshots and a 43-second GIF already exist, captured
+with v0.2.46 mock fixtures; see [asset provenance](screenshots/README.md).
+They are historical illustrations, not v0.2.73 runtime acceptance.
+
+Next experiment: publish the three first-success tutorials on an explicitly
+selected channel, record post URLs/date and source version, then compare
+equal-length windows. Preserve the existing no-telemetry boundary. Search
+leadership alone is insufficient to claim weekly download growth.
+
+## Historical baseline — 2026-08-30 (Asia/Shanghai)
 
 | Metric | Baseline | Reproducible source |
 |---|---:|---|
