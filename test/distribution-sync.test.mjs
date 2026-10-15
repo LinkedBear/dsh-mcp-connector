@@ -55,7 +55,9 @@ test('links each active external metadata defect to its current follow-up', () =
   const tracking = Object.fromEntries(DEFAULT_TARGETS.map((candidate) => [candidate.id, candidate.trackingUrl]));
   assert.equal(tracking.dshfind, undefined);
   assert.equal(tracking['dsh-pub'], 'https://github.com/dsh-pub/dsh-pub/issues/117');
-  assert.equal(tracking.dshbase, 'https://github.com/ylwl1997/dshbase/issues/100');
+  // #100 was closed by the maintainer after fixing npm metadata; transient
+  // availability/version drift must not point users to a resolved defect.
+  assert.equal(tracking.dshbase, undefined);
 });
 
 test('parses the connector from awesome-dsh-plugin registry JSON', () => {

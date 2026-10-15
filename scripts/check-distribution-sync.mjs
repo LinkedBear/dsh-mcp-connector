@@ -37,7 +37,6 @@ export const DEFAULT_TARGETS = [
     label: 'dshbase',
     url: 'https://www.dshbase.com/plugins/dsh-mcp-connector/',
     parser: 'dshbase',
-    trackingUrl: 'https://github.com/ylwl1997/dshbase/issues/100',
   },
 ];
 
