@@ -200,7 +200,9 @@ export async function checkDistributionSync({ fetchImpl = fetch, targets = DEFAU
     }
   }));
 
-  const blockingStatuses = new Set(['stale', 'invalid', 'missing']);
+  // A failed probe is unknown, not proof of synchronization. Strict checks
+  // must not pass when one (or every) directory is unreachable.
+  const blockingStatuses = new Set(['stale', 'invalid', 'missing', 'unavailable']);
   return {
     package: PACKAGE_NAME,
     canonicalVersion,
