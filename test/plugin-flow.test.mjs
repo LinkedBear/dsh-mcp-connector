@@ -103,7 +103,8 @@ function makePluginContext({ shared, loaderHooks, workspaces, withWeb = false } 
   };
   const routes = new Map();
   if (withWeb) ctx.inject = (dependencies, callback) => {
-    if (dependencies.includes('webServer')) callback({
+    if (dependencies.includes('webServer') && dependencies.includes('webRuntime')) callback({
+      effect: ctx.effect,
       webRuntime: {}, webServer: { register(route) { routes.set(route.path, route.handler); return () => routes.delete(route.path); } },
     });
   };
