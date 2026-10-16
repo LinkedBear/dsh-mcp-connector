@@ -16,7 +16,11 @@ test('P3 data-source review is bounded, reproducible, and preserves policy exclu
     'unesco-uis-education-statistics',
     'shumi-crypto-market-intelligence',
   ]);
-  assert.deepEqual(report.candidates.map((item) => item.status), ['PASS', 'PASS', 'DEFERRED']);
+  assert.deepEqual(report.candidates.map((item) => item.status), [
+    'DEFERRED',
+    'DEFERRED',
+    'DEFERRED',
+  ]);
   assert.deepEqual(report.policy.doNotList, [
     'dsh-qixin-insight-mcp-oauth',
     'dsh-plugin-xparse',
@@ -37,13 +41,15 @@ test('P3 data-source review is bounded, reproducible, and preserves policy exclu
     assert.match(candidate.runtime.responseSha256, /^[a-f0-9]{64}$/);
     assert.equal(candidate.credentialsStored, false);
     assert.equal(candidate.rawResponseStored, false);
-    if (candidate.status === 'PASS') {
-      assert.equal(candidate.runtime.callStatus, 'success');
-      assert.equal(candidate.runtime.credentialScan, 'pass');
-      assert.equal(candidate.blockers.length, 0);
-    } else {
-      assert.ok(candidate.blockers.length > 0);
-    }
+    assert.ok(candidate.blockers.length > 0);
+  }
+
+  for (const candidate of report.candidates.slice(0, 2)) {
+    assert.equal(candidate.protocolStatus, 'PASS');
+    assert.match(candidate.validationScope, /^protocol-and-.+-metadata-only$/);
+    assert.equal(candidate.businessDataValidated, false);
+    assert.equal(candidate.runtime.callStatus, 'success');
+    assert.equal(candidate.runtime.credentialScan, 'pass');
   }
 
   assert.equal(report.itjuziPostListingReview.status, 'healthy-partial');

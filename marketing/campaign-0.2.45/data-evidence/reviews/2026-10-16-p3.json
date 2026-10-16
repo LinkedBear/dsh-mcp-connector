@@ -108,11 +108,16 @@
         "responseSha256": "ee1a0f688ff3dc0e4aed3eb3cce96f218e17923386598176b9923d7745b9dff3",
         "credentialScan": "pass"
       },
+      "protocolStatus": "PASS",
+      "validationScope": "protocol-and-server-metadata-only",
+      "businessDataValidated": false,
       "dedupe": "No stable identity match in 110 Registry Connector descriptors at commit 8f1f3fa.",
-      "status": "PASS",
-      "score": 90,
-      "blockers": [],
-      "next": "Prepare a draft Connector card and obtain named human approval; retain the non-affiliation and redistribution warning.",
+      "status": "DEFERRED",
+      "score": 78,
+      "blockers": [
+        "Only get_server_info metadata was called; filing search/read results, source fields, time range and business-data quality were not validated."
+      ],
+      "next": "Run one bounded filing search/read and verify result fields, provenance and time range before considering a draft Connector card.",
       "credentialsStored": false,
       "rawResponseStored": false
     },
@@ -148,11 +153,16 @@
         "responseSha256": "fcda4018eaa87a02deaf3acc4a54bd411b670ce1c28e54fe2d19c20604b4fa8d",
         "credentialScan": "pass"
       },
+      "protocolStatus": "PASS",
+      "validationScope": "protocol-and-geography-metadata-only",
+      "businessDataValidated": false,
       "dedupe": "No stable identity match in 110 Registry Connector descriptors at commit 8f1f3fa.",
-      "status": "PASS",
-      "score": 92,
-      "blockers": [],
-      "next": "Prepare a draft Connector card and obtain named human approval; disclose community maintenance, upstream attribution and rate limits.",
+      "status": "DEFERRED",
+      "score": 80,
+      "blockers": [
+        "Only uis_list_geo_units metadata was called; indicator values, units, release/version provenance and missing-value behavior were not validated."
+      ],
+      "next": "Run one bounded indicator/geo/year statistics query and verify units, release/version provenance and missing values before considering a draft Connector card.",
       "credentialsStored": false,
       "rawResponseStored": false
     },
