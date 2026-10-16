@@ -34,6 +34,44 @@ selected channel, record post URLs/date and source version, then compare
 equal-length windows. Preserve the existing no-telemetry boundary. Search
 leadership alone is insufficient to claim weekly download growth.
 
+## Repeatable equal-window review procedure
+
+Use this procedure only after an external post has an authorized platform,
+account and public URL. It preserves comparable calendar windows without
+adding product telemetry or reconstructing missing history.
+
+1. Save `P`, the post's public timestamp and time zone, plus platform, account,
+   language, post URL, linked tutorial commit and asset source version.
+2. For npm, compare the seven complete UTC days immediately before publication
+   (`P-7` through `P-1`) with the seven complete UTC days starting on the next
+   complete UTC day (`P+1` through `P+7`). Record the API's returned `start`,
+   `end` and `downloads`; do not mix a partial publication day into either
+   window.
+3. Save cumulative Stars/Forks snapshots at the two window boundaries and
+   report their deltas separately. Never divide cumulative Stars by windowed
+   downloads.
+4. GitHub Traffic is a rolling 14-day source, not a reconstructable seven-day
+   series. Archive views, clones, popular paths and referrers at a fixed local
+   time before publication and every seven days; compare only snapshots with
+   the same cadence and clearly label their overlapping windows.
+5. Repeat the fixed Market/search query set with the same host/market version,
+   locale, category, sort, date and host filters. If any condition changes,
+   start a new series instead of presenting it as the old one.
+6. Count connection or first-call success only from explicit, consented manual
+   acceptance records. With no such evidence, retain **No data**.
+
+Example npm requests (replace dates only after `P` is known):
+
+```bash
+curl -fsSL https://api.npmjs.org/downloads/point/YYYY-MM-DD:YYYY-MM-DD/dsh-mcp-connector
+curl -fsSL https://api.npmjs.org/downloads/point/YYYY-MM-DD:YYYY-MM-DD/dsh-mcp-connector
+```
+
+For each review, report the absolute difference and `(post - pre) / pre` only
+when `pre > 0`. Call it an equal-window change, not campaign attribution or a
+user conversion rate. The publication checklist and missing ownership fields
+are maintained in [`marketing/P1-FIRST-SUCCESS-PUBLICATION-PACK-2026-10-16.md`](../marketing/P1-FIRST-SUCCESS-PUBLICATION-PACK-2026-10-16.md).
+
 ## Historical baseline — 2026-08-30 (Asia/Shanghai)
 
 | Metric | Baseline | Reproducible source |
@@ -64,7 +102,7 @@ The Traffic snapshot was collected through the official GitHub API on 2026-08-30
 | findharness | 1 | 1 |
 | 微信 | 1 | 1 |
 
-`Open Issues = 1` is the pre-intervention baseline. The documentation-scoped [`good first issue` #29](https://github.com/duhu2000/dsh-mcp-connector/issues/29) was created afterward as part of this round, so it must be counted as a change, not folded back into the baseline.
+`Open Issues = 1` is the pre-intervention baseline. The documentation-scoped [`good first issue` #29](https://github.com/duhu2000/dsh-mcp-connector/issues/29) was created afterward as part of this round, so it must be counted as a change, not folded back into the baseline. It was completed and closed on 2026-09-22; it is historical evidence, not a currently claimable task.
 
 Recheck the quantitative baseline with:
 
