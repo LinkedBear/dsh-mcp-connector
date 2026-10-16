@@ -25,9 +25,12 @@ saved screenshot. This is not the latest-market or ecosystem-wide ranking.
 The Oct 2/9 checkpoint dates below have passed. No archived scenario-call,
 publication or first-party conversion evidence was found for those dates;
 their placeholders mean **not verified**, not future scheduled work or zero.
-Three tool-workbench screenshots and a 43-second GIF already exist, captured
-with v0.2.46 mock fixtures; see [asset provenance](screenshots/README.md).
-They are historical illustrations, not v0.2.73 runtime acceptance.
+Seven storefront screenshots and a 43-second GIF exist with per-asset
+provenance; see [asset provenance](screenshots/README.md). Screenshots 01, 02,
+04 and 07 were recaptured from the v0.2.73 credential-free harness on Oct 16.
+Screenshot 03 remains a v0.2.37 historical fixture; 05, 06 and the GIF remain
+v0.2.46 historical fixtures. Every asset is a Mock illustration, not real-account
+runtime acceptance.
 
 Next experiment: publish the three first-success tutorials on an explicitly
 selected channel, record post URLs/date and source version, then compare
