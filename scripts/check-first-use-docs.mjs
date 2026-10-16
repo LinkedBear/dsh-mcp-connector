@@ -142,8 +142,8 @@ export async function checkFirstUseDocs() {
   for (const expected of [
     '#29',
     '已完成并关闭',
-    '当日公开 `good first issue` 列表为空',
-    '可直接建 Issue 的下一个新手任务',
+    'issues/156',
+    '当前可认领的新手任务',
     'scripts/check-tutorial-links.mjs',
     '不发起网络请求',
   ]) {

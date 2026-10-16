@@ -4,7 +4,7 @@
 
 Welcome! Start with an unassigned [`good first issue`](https://github.com/duhu2000/dsh-mcp-connector/labels/good%20first%20issue). Leave a short comment before working on it so contributors do not duplicate effort.
 
-> 2026-10-16 复核：原新手任务 [#29](https://github.com/duhu2000/dsh-mcp-connector/issues/29) 已完成并关闭；当日公开 `good first issue` 列表为空。请以上面的动态标签页为准，不要认领已关闭任务。
+> 2026-10-16 复核：原新手任务 [#29](https://github.com/duhu2000/dsh-mcp-connector/issues/29) 已完成并关闭；当前可认领任务是 [#156](https://github.com/duhu2000/dsh-mcp-connector/issues/156)。请以上面的动态标签页为准，并在 Issue 留言后再开始。
 
 ## 适合第一次参与的范围
 
@@ -15,9 +15,9 @@ Welcome! Start with an unassigned [`good first issue`](https://github.com/duhu20
 
 新的公共连接器描述不提交到本仓库，请改走独立 Registry 的[连接器上架指南](https://github.com/duhu2000/dsh-mcp-connector-registry/blob/main/docs/ONBOARDING.md)。
 
-## 可直接建 Issue 的下一个新手任务
+## 当前可认领的新手任务
 
-**标题**：`docs: 增加首次成功教程的本地链接校验`
+**Issue [#156](https://github.com/duhu2000/dsh-mcp-connector/issues/156)**：`docs: 增加首次成功教程的本地链接校验`
 
 背景：`docs/tutorials/*.md` 已经形成安装、JSON 迁移、OAuth、工具恢复和场景验收网络，但目前的文档门禁主要检查关键文案，还不会统一报告失效的本地 Markdown 链接。这个任务不需要 DSH、网络、真实连接器或凭据。
 
@@ -34,7 +34,7 @@ Welcome! Start with an unassigned [`good first issue`](https://github.com/duhu20
 - [ ] 失败信息精确到 `源文件 -> 目标`，方便首次贡献者修复。
 - [ ] `npm run check` 通过，且不引入新的运行时依赖。
 
-维护者建 Issue 时应带上 `documentation` 和 `good first issue` 标签，并在提交者留言认领后再分配；不应要求新手发版或修改 Registry。
+该 Issue 已带 `documentation` 和 `good first issue` 标签；不要求新手发版或修改 Registry。
 
 ## 从 Issue 到 PR
 
