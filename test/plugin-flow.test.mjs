@@ -211,6 +211,73 @@ test('市场 stdio 本地覆盖：重连、快照恢复、停用保持及失败�
   } finally { for (const dispose of disposers) await dispose(); }
 });
 
+test('本地参数存储失败恢复旧记录和 Host，首次安装失败不残留（#146）', async () => {
+  const host = makePluginContext({ withWeb: true });
+  const { apply } = await import('../lib/index.js');
+  const descriptor = { id: 'storage-overlay', name: 'Storage overlay', auth: { mode: 'none' }, servers: [{ serverKey: 'main', serverName: 'storage-overlay', transport: 'stdio', command: 'node', args: ['server.js'] }] };
+  const table = host.tables.get('connections');
+  const put = table.put.bind(table);
+  table.put = async (key, record) => {
+    if (record.localOverrides?.env?.FAIL === 'private-storage-value') throw new Error('private-storage-value');
+    return put(key, record);
+  };
+  const json = '{"env":{"FAIL":"private-storage-value"}}';
+  try {
+    await apply(host.ctx, baseConfig({ connectors: [descriptor] }));
+    const first = await host.webCall('connect', { connectorId: descriptor.id, localOverrides: json });
+    assert.equal(first.ok, false);
+    assert.doesNotMatch(JSON.stringify(first), /private-storage-value/);
+    assert.equal([...table.entries()].length, 0);
+    assert.equal(host.loader.entries.size, 0);
+    assert.equal([...host.tables.get('snapshots').entries()].length, 0);
+    assert.equal((await host.webCall('connect', { connectorId: descriptor.id, localOverrides: '{"argsAppend":["--safe"]}' })).ok, true);
+    const key = 'storage-overlay-main';
+    const snapshots = [...host.tables.get('snapshots').entries()].length;
+    const failed = await host.webCall('applyLocalOverrides', { key, json });
+    assert.equal(failed.ok, false);
+    assert.doesNotMatch(JSON.stringify(failed), /private-storage-value/);
+    assert.deepEqual((await table.get(key)).localOverrides, { argsAppend: ['--safe'] });
+    assert.deepEqual(host.loader.entries.get(`mcp-${key}`).options.config.args, ['server.js', '--safe']);
+    assert.equal([...host.tables.get('snapshots').entries()].length, snapshots);
+  } finally { for (const dispose of host.disposers) await dispose(); }
+});
+
+test('本地参数重启恢复；停用连接不启动；市场授权变化阻止旧覆盖启动（#146）', async () => {
+  const { apply } = await import('../lib/index.js');
+  const descriptor = { id: 'restart-overlay', name: 'Restart overlay', auth: { mode: 'none' }, servers: [{ serverKey: 'main', serverName: 'restart-overlay', transport: 'stdio', command: 'node', args: ['server.js'] }] };
+  const key = 'restart-overlay-main';
+  const first = makePluginContext({ withWeb: true });
+  await apply(first.ctx, baseConfig({ connectors: [descriptor] }));
+  try {
+    assert.equal((await first.webCall('connect', { connectorId: descriptor.id, localOverrides: '{"argsAppend":["--safe"],"env":{"LOCAL":"test"},"cwd":"/tmp"}' })).ok, true);
+  } finally { for (const dispose of first.disposers) await dispose(); }
+  for (const mode of ['enabled', 'disabled', 'credential-bound']) {
+    const table = first.tables.get('connections');
+    await table.put(key, { ...await table.get(key), enabled: mode !== 'disabled' });
+    const changed = structuredClone(descriptor);
+    if (mode === 'credential-bound') {
+      changed.auth = { mode: 'api-key', credentialFields: [{ key: 'apiKey', label: 'API Key', required: true, secret: true }] };
+      changed.servers[0].credentialBindings = { TOKEN: 'apiKey' };
+    }
+    const restarted = makePluginContext({ shared: { tables: first.tables }, withWeb: true });
+    try {
+      await apply(restarted.ctx, baseConfig({ connectors: [changed] }));
+      const entry = restarted.loader.entries.get(`mcp-${key}`);
+      if (mode === 'enabled') {
+        const args = entry.options.config.args;
+        assert.match(args[0], /stdio-startup-guard\.js$/);
+        assert.deepEqual(args.slice(args.indexOf('--') + 1), ['node', 'server.js', '--safe']);
+        assert.equal(entry.options.config.env.LOCAL, 'test');
+        assert.equal(entry.options.config.cwd, '/tmp');
+      } else {
+        assert.equal(entry, undefined, mode);
+      }
+      assert.deepEqual((await table.get(key)).localOverrides.argsAppend, ['--safe'], 'stored overlay preserved for recovery');
+      if (mode === 'credential-bound') assert.match(restarted.logs.join('\n'), /不再允许本地参数覆盖/);
+    } finally { for (const dispose of restarted.disposers) await dispose(); }
+  }
+});
+
 test('首次市场连接前设置本地参数；失败不落库，修正可重试，授权配置拒绝覆盖（#146）', async () => {
   let starts = 0;
   const { ctx, loader, tables, webCall, disposers } = makePluginContext({ withWeb: true, loaderHooks: {
