@@ -1793,7 +1793,7 @@ test('stdio 市场凭据绑定：多字段只在本机注入 env，目录和状�
       credentialBindings: { VENDOR_API_TOKEN: 'apiToken', VENDOR_REGION: 'region' },
     }],
   };
-  const { ctx, loader, tools, tables, logs } = makePluginContext();
+  const { ctx, loader, tools, tables, logs, webCall } = makePluginContext({ withWeb: true });
   const { apply } = await import('../lib/index.js');
   await apply(ctx, baseConfig({ connectors: [connector] }));
 
@@ -1838,6 +1838,11 @@ test('stdio 市场凭据绑定：多字段只在本机注入 env，目录和状�
     VENDOR_REGION: 'region',
   });
   assert.doesNotMatch(JSON.stringify({ connect, configured, catalog, status, logs }), /stdio-local-secret/);
+  assert.equal(status.detail.items[0].canEditLocalOverrides, false);
+  const denied = await webCall('applyLocalOverrides', { key: 'stdio-secure-market-main', json: '{"env":{"VENDOR_API_TOKEN":"replacement"}}' });
+  assert.equal(denied.ok, false, 'credential bindings must not be replaceable through the overlay API');
+  assert.equal((await webCall('editableLocalOverrides', { key: 'stdio-secure-market-main' })).ok, false);
+  assert.equal(loader.entries.get('mcp-stdio-secure-market-main').options.config.env.VENDOR_API_TOKEN, 'stdio-local-secret');
 });
 
 test('目录识别旧版 API Key 单入口并提示升级 OAuth 一键授权', async () => {
