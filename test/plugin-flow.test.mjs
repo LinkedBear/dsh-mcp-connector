@@ -164,6 +164,53 @@ test('精简工具配置保持旧默认；开启后仅两个入口且图形 API 
   assert.equal(tools.defs.size, 0);
 });
 
+test('市场 stdio 本地覆盖：重连、快照恢复、停用保持及失败回滚（#146）', async () => {
+  let failUpdate = false;
+  const loaderHooks = { onUpdate: ({ patch }) => {
+    if (failUpdate && patch.config?.args?.includes('synthetic-secret')) throw new Error('synthetic-secret');
+  } };
+  const { ctx, tools, tables, loader, webCall, disposers } = makePluginContext({ withWeb: true, loaderHooks });
+  const { apply } = await import('../lib/index.js');
+  const descriptor = { id: 'local-overlay', name: 'Overlay', auth: { mode: 'none' }, servers: [{ serverKey: 'main', serverName: 'local-overlay', transport: 'stdio', command: 'node', args: ['server.js'], env: { BASE: 'original' } }] };
+  try {
+    await apply(ctx, baseConfig({ connectors: [descriptor] }));
+    const connected = await webCall('connect', { connectorId: descriptor.id });
+    assert.equal(connected.ok, true, connected.message);
+    const key = 'local-overlay-main';
+    const record = () => tables.get('connections').get(key);
+    const entry = () => loader.entries.get(`mcp-${key}`);
+    const first = await webCall('applyLocalOverrides', { key, json: JSON.stringify({ argsAppend: ['--safe'], env: { TOKEN: 'synthetic-secret' } }) });
+    assert.equal(first.ok, true, first.message);
+    assert.deepEqual(entry().options.config.args, ['server.js', '--safe']);
+    assert.deepEqual((await record()).args, ['server.js']);
+    const safe = await webCall('editableLocalOverrides', { key });
+    assert.doesNotMatch(JSON.stringify(safe), /synthetic-secret/);
+    assert.equal((await webCall('applyLocalOverrides', { key, json: safe.detail.json })).ok, true);
+    tools.register({ name: 'mcp__local-overlay__search', description: 'Synthetic local tool', parameters: {} });
+    assert.equal((await webCall('reconnect', { key })).ok, true);
+    assert.deepEqual(entry().options.config.args, ['server.js', '--safe']);
+    failUpdate = true;
+    const failed = await webCall('applyLocalOverrides', { key, json: JSON.stringify({ argsAppend: ['synthetic-secret'] }) });
+    assert.equal(failed.ok, false);
+    assert.doesNotMatch(JSON.stringify(failed), /synthetic-secret/);
+    assert.deepEqual(entry().options.config.args, ['server.js', '--safe']);
+    assert.deepEqual((await record()).localOverrides.argsAppend, ['--safe']);
+    failUpdate = false;
+    assert.equal((await webCall('setEnabled', { key, enabled: false })).ok, true);
+    assert.equal((await webCall('applyLocalOverrides', { key, json: '{"cwd":"/changed"}' })).ok, true);
+    assert.equal((await record()).enabled, false);
+    assert.equal(entry().disabled, true);
+    assert.equal((await webCall('restoreSnapshot', { snapshotId: first.detail.snapshotId })).ok, true);
+    assert.equal((await record()).localOverrides, undefined);
+    assert.deepEqual(entry().options.config.args, ['server.js']);
+    assert.equal((await webCall('applyLocalOverrides', { key, json: '{"argsAppend":["--again"]}' })).ok, true);
+    assert.equal((await webCall('applyLocalOverrides', { key, reset: true })).ok, true);
+    assert.equal((await record()).localOverrides, undefined);
+    assert.deepEqual(entry().options.config.args, ['server.js']);
+    assert.equal([...tools.defs.keys()].filter((name) => name.startsWith('mcp_connector_')).length, 25, 'no additional resident management tool');
+  } finally { for (const dispose of disposers) await dispose(); }
+});
+
 test('configure 无顶层 anyOf 时仍拒绝缺失参数且不创建连接、快照或 Host 服务（#89）', async () => {
   const { ctx, tools, tables, loader, disposers } = makePluginContext();
   const { apply } = await import('../lib/index.js');
