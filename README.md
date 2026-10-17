@@ -162,6 +162,7 @@ Bundle 默认配置位于 `cordis.patch.yml`：
     refreshSkewMs: 300000
     openBrowser: true
     showSidebarEntry: true
+    compactManagementTools: false
     frameAncestors: ['self']
 ```
 
@@ -172,6 +173,14 @@ Bundle 默认配置位于 `cordis.patch.yml`：
 代理变量必须存在于正在运行的 DSH 进程中。修改后请完全退出并重启 DSH Desktop，或从已设置变量的终端启动 `dsh web`；修改 Windows 用户环境变量不会更新已有进程。连接器不会读取系统代理设置，也不会猜测本机代理地址。
 
 `showSidebarEntry` 默认为 `true`。用户可在 DSH 插件配置页覆盖该值；关闭后只隐藏侧边栏快捷入口，不停用连接器、已连接 MCP Server 或工具。
+
+`compactManagementTools` 默认为 `false`，兼容原有对话管理工具。希望降低管理工具上下文开销时，可在插件配置中设为 `true` 并重载插件（必要时重启 DSH），下一次推理使用新工具集：
+
+- 只注册 `mcp_connector_discover`（市场、连接状态、缓存工具搜索/详情）和 `mcp_connector_session_tools`（原有会话工具可见性管理）两个入口。
+- 连接、授权、编辑、导入、快照、迁移等管理操作使用 **MCP连接器界面**；精简模式没有任意工具执行代理，也不自动加载全部管理工具。纯对话部署或依赖旧工具名的自动化应保持 `false`。
+- 此开关不减少已连接服务的业务工具数量，不停用连接、不迁移凭据、不修改作用域/治理规则。业务工具需要按需可见时，仍使用原有“按会话启用”。会话确认、TTL 与 Host 审批保持不变。
+- 例如发现入口可用 `{"action":"search","query":"天气","limit":5}`；查询连接状态可用 `{"action":"status"}`。详情使用 `action=detail` 和必填 `toolName`，市场搜索使用 `action=catalog` 与可选 `keyword`。
+- 设回 `false` 并重载插件可恢复旧管理工具名；不要同时运行两份插件。工具数量和 schema 大小的减少不等于实测 token 或费用节省。
 
 `frameAncestors` 默认为 `['self']`，即面板页面（`/mcp-connector/ui/`）的 CSP 只允许同源页面内嵌，是既有行为，不做任何放宽。在桌面壳（Tauri/Electron）里把面板嵌进壳窗口时，祖先源与面板自身不同源，浏览器会以 `Framing '...' violates the following Content Security Policy directive: "frame-ancestors 'self'"` 拦截并导致面板白屏；此时需要由部署方/用户显式追加外壳源：
 

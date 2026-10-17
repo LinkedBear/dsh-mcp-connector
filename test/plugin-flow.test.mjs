@@ -144,6 +144,26 @@ async function waitFor(fn, { timeout = 5000, interval = 20 } = {}) {
   }
 }
 
+test('精简工具配置保持旧默认；开启后仅两个入口且图形 API 仍可用（#161）', async () => {
+  const { apply, Config } = await import('../lib/index.js');
+  assert.equal(Config({}).compactManagementTools, false);
+  assert.equal(Config({ compactManagementTools: true }).compactManagementTools, true);
+  const { ctx, tools, webCall, disposers } = makePluginContext({ withWeb: true });
+  try {
+    await apply(ctx, baseConfig({ compactManagementTools: true }));
+    assert.deepEqual([...tools.defs.keys()], ['mcp_connector_discover', 'mcp_connector_session_tools']);
+    const status = await tools.defs.get('mcp_connector_discover').execute({ action: 'status' });
+    assert.equal(status.ok, true);
+    assert.equal((await webCall('status')).ok, true);
+    const invalid = await webCall('configure', {});
+    assert.equal(invalid.ok, false);
+    assert.match(invalid.message, /name 必填/);
+  } finally {
+    for (const dispose of disposers) await dispose();
+  }
+  assert.equal(tools.defs.size, 0);
+});
+
 test('configure 无顶层 anyOf 时仍拒绝缺失参数且不创建连接、快照或 Host 服务（#89）', async () => {
   const { ctx, tools, tables, loader, disposers } = makePluginContext();
   const { apply } = await import('../lib/index.js');
