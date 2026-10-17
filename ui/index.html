@@ -1671,11 +1671,15 @@
   function openConnectScope(connectorId) {
     const connector = marketItems[connectorId];
     if (!connector) return;
+    const server = connector.servers?.[0];
+    const allowLocalParameters = connector.authMode === 'none' && connectorId !== 'dingtalk'
+      && server?.transport === 'stdio' && !server.oauthTokenEnv && !Object.keys(server.credentialBindings || {}).length;
     openModal(`连接 ${connector.name}`, `
       <input id="scope-connector-id" type="hidden" value="${esc(connectorId)}" />
       <div class="form-note">${connectionLabels(connector).map(esc).join(' · ')}${connector.credentialDescription ? `<p>${esc(connector.credentialDescription)}</p>` : ''}${connectorId === 'dingtalk' ? '<p>企业尚未开放 CLI 或您无法取得授权？可以取消，等待管理员处理，无需反复登录或重启。一键授权也不能绕过企业政策。本版本不会自动发起登录；工具注册不代表已获得全部业务权限。</p>' : ''}</div>
       <div class="form-note"><strong>选择连接影响范围</strong>连接配置与凭据仍只保存一份；项目范围会由 Host 在工具可见性和执行层强制隔离。</div>
       ${scopeFieldHtml()}
+      ${allowLocalParameters ? '<details><summary>高级：首次连接前设置本地参数（可选）</summary><label for="initial-local-overrides">本地参数 JSON</label><textarea id="initial-local-overrides" rows="6" spellcheck="false" placeholder=\'{"argsAppend":[],"env":{},"cwd":""}\'></textarea><div class="field-help">留空使用市场参数（已有连接保留原覆盖）。argsAppend 追加命令参数，env 合并环境变量，cwd 设置工作目录；仅保存在本机。可用于指定浏览器路径或代理。参数可能扩大本地访问权限，请仅填写可信内容；启动失败时保留表单供修改重试。</div></details>' : ''}
       <div class="inline-error" id="modal-error" tabindex="-1"></div>
       <div class="m-actions"><button class="btn ghost" type="button" onclick="window.__mcp.closeModal()">取消</button><button class="btn" type="button" onclick="window.__mcp.confirmConnect()">确认连接</button></div>`);
   }
@@ -1847,8 +1851,9 @@
       try { scopeParams = selectedScopeParams(); }
       catch (error) { showModalError(error.message); return; }
       const timeoutMs = marketItems[connectorId]?.authMode === 'oauth2-pkce' ? 310_000 : undefined;
+      const localOverrides = $('#initial-local-overrides')?.value.trim();
       setModalBusy(true, '正在连接…');
-      const r = await call('connect', { connectorId, ...scopeParams }, { timeoutMs });
+      const r = await call('connect', { connectorId, ...scopeParams, ...(localOverrides ? { localOverrides } : {}) }, { timeoutMs });
       setModalBusy(false);
       showToast(r.message, r.ok);
       if (!r.ok) showModalError(r.message);

@@ -211,6 +211,43 @@ test('市场 stdio 本地覆盖：重连、快照恢复、停用保持及失败�
   } finally { for (const dispose of disposers) await dispose(); }
 });
 
+test('首次市场连接前设置本地参数；失败不落库，修正可重试，授权配置拒绝覆盖（#146）', async () => {
+  let starts = 0;
+  const { ctx, loader, tables, webCall, disposers } = makePluginContext({ withWeb: true, loaderHooks: {
+    onCreate: ({ config }) => {
+      starts++;
+      if (!config.args?.includes('--executablePath')) throw new Error('synthetic-private-startup');
+    },
+  } });
+  const { apply } = await import('../lib/index.js');
+  const connector = { id: 'first-overlay', name: 'First overlay', auth: { mode: 'none' }, servers: [{ serverKey: 'main', serverName: 'first-overlay', transport: 'stdio', command: 'node', args: ['server.js'] }] };
+  const oauth = { id: 'oauth-overlay', name: 'OAuth', auth: { mode: 'oauth2-pkce' }, servers: [{ serverKey: 'main', serverName: 'oauth-overlay', url: 'https://example.com/mcp' }] };
+  try {
+    await apply(ctx, baseConfig({ connectors: [connector, oauth] }));
+    const first = await webCall('connect', { connectorId: connector.id, localOverrides: '{"argsAppend":["--wrong"]}' });
+    assert.equal(first.ok, false);
+    assert.doesNotMatch(JSON.stringify(first), /synthetic-private-startup/);
+    assert.equal([...tables.get('connections').entries()].length, 0);
+    assert.equal([...tables.get('snapshots').entries()].length, 0);
+    assert.equal(loader.entries.size, 0);
+    const invalid = await webCall('connect', { connectorId: connector.id, localOverrides: '{"command":"other"}' });
+    assert.equal(invalid.ok, false);
+    assert.equal(starts, 1, 'invalid overrides rejected before starting');
+    const denied = await webCall('connect', { connectorId: oauth.id, localOverrides: '{}' });
+    assert.equal(denied.ok, false);
+    assert.match(denied.message, /不可覆盖授权配置/);
+    const result = await webCall('connect', { connectorId: connector.id, localOverrides: JSON.stringify({ argsAppend: ['--executablePath', 'C:\\Program Files\\Browser\\browser.exe'], env: { TEST: 'synthetic-value' } }) });
+    assert.equal(result.ok, true, result.message);
+    assert.deepEqual(loader.entries.get('mcp-first-overlay-main').options.config.args, ['server.js', '--executablePath', 'C:\\Program Files\\Browser\\browser.exe']);
+    const record = await tables.get('connections').get('first-overlay-main');
+    assert.deepEqual(record.args, ['server.js']);
+    assert.equal(record.localOverrides.env.TEST, 'synthetic-value');
+    assert.doesNotMatch(JSON.stringify(result), /synthetic-value|Program Files/);
+    assert.equal((await webCall('connect', { connectorId: connector.id })).ok, true);
+    assert.deepEqual((await tables.get('connections').get('first-overlay-main')).localOverrides, record.localOverrides);
+  } finally { for (const dispose of disposers) await dispose(); }
+});
+
 test('configure 无顶层 anyOf 时仍拒绝缺失参数且不创建连接、快照或 Host 服务（#89）', async () => {
   const { ctx, tools, tables, loader, disposers } = makePluginContext();
   const { apply } = await import('../lib/index.js');
