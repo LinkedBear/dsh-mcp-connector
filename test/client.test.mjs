@@ -188,9 +188,33 @@ function mutableSettingsScope(initial) {
   return { scope, writes };
 }
 
-test('客户端声明新会话所需服务', async () => {
+test('客户端入口只等待槽位，不等待 Prompt 运行时', async () => {
   const plugin = await loadClient();
-  assert.deepEqual(plugin.inject, ['slots', 'sessions', 'workspaces', 'conversation']);
+  assert.deepEqual(plugin.inject, ['slots']);
+});
+
+test('缺少工作区与会话服务时仍注册原生入口，Prompt 不降级到全局', async () => {
+  const plugin = await loadClient();
+  const { ctx, registrations, calls } = clientContext({ nativeSidebar: true });
+  delete ctx.workspaces;
+  delete ctx.sessions;
+  plugin.apply(ctx);
+  assert.ok(registrations.has('sidebar.panellist'));
+  const props = registrations.get('main').options.inject();
+  assert.equal(props.workspaceContext(), null);
+  assert.deepEqual(props.workspaceOptions(), []);
+  await assert.rejects(() => props.startPromptSession('test'), /工作空间/);
+  assert.deepEqual(calls, []);
+});
+
+test('对话服务未就绪时拒绝 Prompt，且不提前创建会话', async () => {
+  const plugin = await loadClient();
+  const { ctx, registrations, calls } = clientContext({ nativeSidebar: true });
+  ctx.get = () => undefined;
+  plugin.apply(ctx);
+  assert.ok(registrations.has('sidebar.panellist'));
+  await assert.rejects(() => registrations.get('main').options.inject().startPromptSession('test'), /尚未就绪/);
+  assert.deepEqual(calls, []);
 });
 
 test('客户端入口不依赖 Host 版本特有的 Store、Runtime 或 UI Primitives 模块', async () => {
