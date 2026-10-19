@@ -211,6 +211,53 @@ test('市场 stdio 本地覆盖：重连、快照恢复、停用保持及失败�
   } finally { for (const dispose of disposers) await dispose(); }
 });
 
+for (const finalAction of ['disable', 'disconnect', 'edit']) {
+  test(`超时启动迟到完成不能覆盖后续 ${finalAction}（#165）`, { timeout: 10000 }, async () => {
+    let finish;
+    let delayed = false;
+    const pending = new Promise(resolve => { finish = resolve; });
+    const host = makePluginContext({ withWeb: true, loaderHooks: {
+      async onUpdate({ patch }) {
+        if (!delayed && patch.config?.args?.includes('--slow')) {
+          delayed = true;
+          await pending;
+        }
+      },
+    } });
+    const { apply } = await import('../lib/index.js');
+    const id = 'late-overlay';
+    const key = `${id}-main`;
+    const descriptor = { id, name: 'Late overlay', auth: { mode: 'none' }, servers: [{ serverKey: 'main', serverName: id, transport: 'stdio', command: 'node', args: ['server.js'] }] };
+    try {
+      await apply(host.ctx, baseConfig({ connectors: [descriptor], startupTimeoutMs: 1000 }));
+      assert.equal((await host.webCall('connect', { connectorId: id })).ok, true);
+      const failed = await host.webCall('applyLocalOverrides', { key, json: '{"argsAppend":["--slow"]}' });
+      assert.equal(failed.ok, false);
+      const result = finalAction === 'disable'
+        ? await host.webCall('setEnabled', { key, enabled: false })
+        : finalAction === 'disconnect'
+          ? await host.webCall('disconnect', { key })
+          : await host.webCall('applyLocalOverrides', { key, json: '{"argsAppend":["--new"]}' });
+      assert.equal(result.ok, true, result.message);
+      finish();
+      // Drain the resolved startup task and its queued reconciliation.
+      await new Promise(resolve => setTimeout(resolve, 50));
+      const record = await host.tables.get('connections').get(key);
+      const entry = host.loader.entries.get(`mcp-${key}`);
+      if (finalAction === 'disconnect') {
+        assert.equal(record, undefined);
+        assert.equal(entry, undefined);
+      } else if (finalAction === 'disable') {
+        assert.equal(record.enabled, false);
+        assert.equal(entry.disabled, true);
+      } else {
+        assert.deepEqual(record.localOverrides.argsAppend, ['--new']);
+        assert.deepEqual(entry.options.config.args, ['server.js', '--new']);
+      }
+    } finally { finish(); for (const dispose of host.disposers) await dispose(); }
+  });
+}
+
 test('本地参数存储失败恢复旧记录和 Host，首次安装失败不残留（#146）', async () => {
   const host = makePluginContext({ withWeb: true });
   const { apply } = await import('../lib/index.js');
