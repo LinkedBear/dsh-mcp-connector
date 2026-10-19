@@ -213,6 +213,9 @@ test('市场 stdio 本地覆盖：重连、快照恢复、停用保持及失败�
 
 for (const finalAction of ['disable', 'disconnect', 'edit']) {
   test(`超时启动迟到完成不能覆盖后续 ${finalAction}（#165）`, { timeout: 10000 }, async () => {
+    // The production timeout is unref'ed; the fake Host has no process/socket
+    // to keep older Node test runners alive while that deadline is pending.
+    const keepAlive = setInterval(() => {}, 1000);
     let finish;
     let delayed = false;
     const pending = new Promise(resolve => { finish = resolve; });
@@ -254,7 +257,7 @@ for (const finalAction of ['disable', 'disconnect', 'edit']) {
         assert.deepEqual(record.localOverrides.argsAppend, ['--new']);
         assert.deepEqual(entry.options.config.args, ['server.js', '--new']);
       }
-    } finally { finish(); for (const dispose of host.disposers) await dispose(); }
+    } finally { clearInterval(keepAlive); finish(); for (const dispose of host.disposers) await dispose(); }
   });
 }
 
