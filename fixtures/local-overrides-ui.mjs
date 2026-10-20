@@ -76,7 +76,7 @@ await apply(ctx, {
     args: [fileURLToPath(new URL('./local-overrides-server.cjs', import.meta.url))],
   }] }],
 });
-const allowed = new Set(['catalog', 'status', 'scopeContext', 'healthCheck', 'connect', 'editableLocalOverrides', 'applyLocalOverrides', 'setEnabled', 'disconnect', 'reconnect', 'toolsList', 'toolSearch', 'toolDetail', 'listSnapshots', 'previewSnapshot', 'restoreSnapshot']);
+const allowed = new Set(['catalog', 'status', 'scopeContext', 'healthCheck', 'connect', 'editableLocalOverrides', 'applyLocalOverrides', 'setEnabled', 'disconnect', 'reconnect', 'toolsList', 'toolSearch', 'toolDetail', 'exportConfig', 'listSnapshots', 'previewSnapshot', 'restoreSnapshot']);
 const server = createServer(async (req, res) => {
   const json = (value, status = 200) => { res.writeHead(status, { 'content-type': 'application/json', 'cache-control': 'no-store' }); res.end(JSON.stringify(value)); };
   try {
