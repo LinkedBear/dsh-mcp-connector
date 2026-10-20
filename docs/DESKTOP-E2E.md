@@ -23,7 +23,7 @@ npm run dev:ui
 
 ## 专项验收与人工确认边界
 
-### 本地参数覆盖（#146，开发草案）
+### 本地参数覆盖（#146，0.2.76；Desktop 验收待完成）
 
 传输层隔离验收可使用本机已安装的 Host 代码，无需修改用户 profile。将下面路径换成实际 DSH 安装目录中的 `package.json`（必须能解析 `@deepseek-ai/dsh-mcp-client` 与 `@deepseek-ai/cordis`）：
 
