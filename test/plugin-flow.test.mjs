@@ -292,6 +292,38 @@ test('本地参数存储失败恢复旧记录和 Host，首次安装失败不残
   } finally { for (const dispose of host.disposers) await dispose(); }
 });
 
+test('持续存储失败保留恢复快照且不宣称回滚成功（#165）', async () => {
+  const host = makePluginContext({ withWeb: true });
+  const { apply } = await import('../lib/index.js');
+  const id = 'recovery-overlay';
+  const key = `${id}-main`;
+  const descriptor = { id, name: 'Recovery overlay', auth: { mode: 'none' }, servers: [{ serverKey: 'main', serverName: id, transport: 'stdio', command: 'node', args: ['server.js'] }] };
+  const table = host.tables.get('connections');
+  const put = table.put.bind(table);
+  let failWrites = false;
+  table.put = async (...args) => {
+    if (failWrites) throw new Error('private-storage-value');
+    return put(...args);
+  };
+  try {
+    await apply(host.ctx, baseConfig({ connectors: [descriptor] }));
+    assert.equal((await host.webCall('connect', { connectorId: id, localOverrides: '{"argsAppend":["--safe"]}' })).ok, true);
+    failWrites = true;
+    const failed = await host.webCall('applyLocalOverrides', { key, json: '{"argsAppend":["--changed"]}' });
+    assert.equal(failed.ok, false);
+    assert.equal(failed.detail.recoveryRequired, true);
+    assert.match(failed.message, /回滚未完成/);
+    assert.doesNotMatch(JSON.stringify(failed), /private-storage-value|--safe|--changed/);
+    const snapshot = await host.tables.get('snapshots').get(failed.detail.snapshotId);
+    assert.deepEqual(snapshot.records[0].localOverrides.argsAppend, ['--safe']);
+    failWrites = false;
+    const restored = await host.webCall('restoreSnapshot', { snapshotId: failed.detail.snapshotId });
+    assert.equal(restored.ok, true, restored.message);
+    assert.deepEqual((await table.get(key)).localOverrides.argsAppend, ['--safe']);
+    assert.deepEqual(host.loader.entries.get(`mcp-${key}`).options.config.args, ['server.js', '--safe']);
+  } finally { failWrites = false; for (const dispose of host.disposers) await dispose(); }
+});
+
 test('本地参数重启恢复；停用连接不启动；市场授权变化阻止旧覆盖启动（#146）', async () => {
   const { apply } = await import('../lib/index.js');
   const descriptor = { id: 'restart-overlay', name: 'Restart overlay', auth: { mode: 'none' }, servers: [{ serverKey: 'main', serverName: 'restart-overlay', transport: 'stdio', command: 'node', args: ['server.js'] }] };
