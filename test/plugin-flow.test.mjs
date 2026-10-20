@@ -261,6 +261,52 @@ for (const finalAction of ['disable', 'disconnect', 'edit']) {
   });
 }
 
+for (const finalAction of ['disable', 'disconnect']) {
+  test(`首次 stdio 安装与本地覆盖编辑、${finalAction} 按请求顺序串行（#146）`, { timeout: 5000 }, async () => {
+    let release;
+    const gate = new Promise(resolve => { release = resolve; });
+    let entered;
+    const started = new Promise(resolve => { entered = resolve; });
+    let creates = 0;
+    const host = makePluginContext({ withWeb: true, loaderHooks: { onCreate: async () => {
+      creates++;
+      entered();
+      await gate;
+    } } });
+    const { apply } = await import('../lib/index.js');
+    const descriptor = { id: 'queued-overlay', name: 'Queued overlay', auth: { mode: 'none' }, servers: [{ serverKey: 'main', serverName: 'queued-overlay', transport: 'stdio', command: 'node', args: ['server.js'] }] };
+    const key = 'queued-overlay-main';
+    try {
+      await apply(host.ctx, baseConfig({ connectors: [descriptor] }));
+      const first = host.webCall('connect', { connectorId: descriptor.id, localOverrides: '{"argsAppend":["--first"]}' });
+      await started;
+      const second = host.webCall('connect', { connectorId: descriptor.id, localOverrides: '{"argsAppend":["--second"]}' });
+      const edit = host.webCall('applyLocalOverrides', { key, json: '{"argsAppend":["--edited"]}' });
+      const last = finalAction === 'disable'
+        ? host.webCall('setEnabled', { key, enabled: false })
+        : host.webCall('disconnect', { key });
+      await new Promise(resolve => setImmediate(resolve));
+      assert.equal(creates, 1, 'overlapping install must not start a second Host entry');
+      release();
+      for (const result of await Promise.all([first, second, edit, last])) assert.equal(result.ok, true, result.message);
+      const record = await host.tables.get('connections').get(key);
+      const entry = host.loader.entries.get(`mcp-${key}`);
+      if (finalAction === 'disable') {
+        assert.equal(record.enabled, false);
+        assert.equal(entry.disabled, true);
+        assert.deepEqual(record.localOverrides.argsAppend, ['--edited']);
+        assert.deepEqual(entry.options.config.args, ['server.js', '--edited']);
+      } else {
+        assert.equal(record, undefined);
+        assert.equal(entry, undefined);
+      }
+    } finally {
+      release();
+      for (const dispose of host.disposers) await dispose();
+    }
+  });
+}
+
 test('本地参数存储失败恢复旧记录和 Host，首次安装失败不残留（#146）', async () => {
   const host = makePluginContext({ withWeb: true });
   const { apply } = await import('../lib/index.js');
@@ -322,6 +368,26 @@ test('持续存储失败保留恢复快照且不宣称回滚成功（#165）', a
     assert.deepEqual((await table.get(key)).localOverrides.argsAppend, ['--safe']);
     assert.deepEqual(host.loader.entries.get(`mcp-${key}`).options.config.args, ['server.js', '--safe']);
   } finally { failWrites = false; for (const dispose of host.disposers) await dispose(); }
+});
+
+test('本地参数持久化与回滚同时失败时不承诺未保存或恢复成功（#146）', async () => {
+  const host = makePluginContext({ withWeb: true });
+  const { apply } = await import('../lib/index.js');
+  const descriptor = { id: 'failed-rollback', name: 'Rollback failure', auth: { mode: 'none' }, servers: [{ serverKey: 'main', serverName: 'failed-rollback', transport: 'stdio', command: 'node', args: ['server.js'] }] };
+  const table = host.tables.get('connections');
+  const put = table.put.bind(table);
+  table.put = async (key, record) => { await put(key, record); throw new Error('synthetic-private-storage-failure'); };
+  table.delete = async () => { throw new Error('synthetic-private-rollback-failure'); };
+  try {
+    await apply(host.ctx, baseConfig({ connectors: [descriptor] }));
+    const result = await host.webCall('connect', { connectorId: descriptor.id, localOverrides: '{"argsAppend":["--test"]}' });
+    assert.equal(result.ok, false);
+    assert.match(result.message, /已尝试恢复原配置.*检查本机 Host 日志与连接状态/);
+    assert.doesNotMatch(JSON.stringify(result), /未保存|已恢复|synthetic-private/);
+    assert.equal(host.loader.entries.size, 0, 'owned Host entry is still removed');
+    assert.ok(await table.get('failed-rollback-main'), 'unrecoverable durable write is not misreported as absent');
+    assert.match(host.logs.join('\n'), /storage rollback/);
+  } finally { for (const dispose of host.disposers) await dispose(); }
 });
 
 test('本地参数重启恢复；停用连接不启动；市场授权变化阻止旧覆盖启动（#146）', async () => {
