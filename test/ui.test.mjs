@@ -7,6 +7,17 @@ const uiSource = normalizeLineEndings(await readFile(new URL('../ui/index.html',
 const clientSource = normalizeLineEndings(await readFile(new URL('../lib/client.js', import.meta.url), 'utf8'));
 const harnessSource = normalizeLineEndings(await readFile(new URL('../scripts/ui-harness.mjs', import.meta.url), 'utf8'));
 
+test('已安装工具详情保留实际传输类型，stdio 不误标远程服务', () => {
+  const start = uiSource.indexOf('    async showConnectionTools(key) {');
+  const end = uiSource.indexOf('    async showDetail(', start);
+  assert.match(uiSource.slice(start, end), /servers: \[\{ transport: record\.transport \}\]/);
+  const labelStart = uiSource.indexOf('  function connectionLabels(d) {');
+  const labelEnd = uiSource.indexOf('  function cardHtml(', labelStart);
+  const labels = new Function(uiSource.slice(labelStart, labelEnd) + '; return connectionLabels;')();
+  assert.ok(labels({ servers: [{ transport: 'stdio' }] }).includes('运行于 DSH 主机'));
+  assert.ok(labels({ servers: [{ transport: 'streamable-http' }] }).includes('远程服务'));
+});
+
 test('首次连接参数入口仅展示于无凭据 stdio；失败留在原表单重试', () => {
   const start = uiSource.indexOf('  function openConnectScope(');
   const end = uiSource.indexOf('  function openScopeManager(', start);
