@@ -2206,6 +2206,7 @@
       await window.__mcp.showDetail(record.connectorId, {
         id: record.connectorId, connectionKey: key, name: record.name, icon: '🔌',
         authMode: record.authMode, connected: [record], connectionState: record.connectionState,
+        servers: [{ transport: record.transport }],
         description: '本机连接的工具发现与参数详情；不会执行工具。',
       });
     },
