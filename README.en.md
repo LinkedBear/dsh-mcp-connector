@@ -85,7 +85,7 @@ If the plugin helps you connect an MCP server faster, consider [starring the rep
 - Explicit, non-destructive migration from the two earlier Qichacha OAuth plugins, plus active-plugin conflict detection that blocks duplicate server management and credential overwrites.
 
 <!-- catalog-stats:start -->
-As of 2026-10-06, the public Registry publishes 109 connector descriptors. After merging and deduplicating them with the 4 bundled Qichacha cards, the Marketplace exposes 113 cards across 9 business categories. Recommendations remain limited to the four Qichacha cards, PKULaw, and Wind, for 6 featured cards in total. The Registry evolves independently; the badge shown after a client refresh and the live badges above are the authoritative current counts.
+As of 2026-10-17, the public Registry publishes 110 connector descriptors. After merging and deduplicating them with the 4 bundled Qichacha cards, the Marketplace exposes 114 cards across 9 business categories. Recommendations remain limited to the four Qichacha cards, PKULaw, and Wind, for 6 featured cards in total. The Registry evolves independently; the badge shown after a client refresh and the live badges above are the authoritative current counts.
 <!-- catalog-stats:end -->
 
 ## Interface and demo
@@ -225,7 +225,7 @@ npm run dev:ui
 
 Every Registry merge regenerates `catalog-stats.json`; an hourly workflow in this repository synchronizes the Chinese and English product copy plus a local stats snapshot. The static npm README updates with package releases, while the live badges above read the Registry directly and therefore stay current without another npm release.
 
-The current public version is [`dsh-mcp-connector@0.2.74`](https://www.npmjs.com/package/dsh-mcp-connector), with [GitHub Release v0.2.74](https://github.com/duhu2000/dsh-mcp-connector/releases/tag/v0.2.74).
+The current public version is [`dsh-mcp-connector@0.2.75`](https://www.npmjs.com/package/dsh-mcp-connector), with [GitHub Release v0.2.75](https://github.com/duhu2000/dsh-mcp-connector/releases/tag/v0.2.75).
 
 See [CHANGELOG.md](CHANGELOG.md) for version history and [docs/DESKTOP-E2E.md](docs/DESKTOP-E2E.md) for the Desktop release checklist.
 
