@@ -2,6 +2,21 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)；首个公开版本从 `0.1.0` 开始。
 
+## [0.2.76] - 2026-10-20
+
+### Added / Fixed
+
+- 无凭据市场 stdio 连接可在首次安装及已安装界面设置本地 argsAppend/env/cwd；保留目录来源和连接身份，支持脱敏编辑、快照恢复、失败重试及停用保持。
+- 串行处理首次安装、编辑、停用和断开，防止迟到启动恢复过期状态；持久化与回滚双重失败保留恢复快照并返回安全提示。
+- 修正已安装工具详情将 stdio 错标为远程服务的问题。
+- 不开放 OAuth、凭据绑定、CLI 桥接或完整参数替换。
+
+### Verification and known limitations
+
+- 完整 check（含隔离真实 MCP bridge）：427 passed / 4 skipped / 0 failed；89 个发布文件检查通过。
+- macOS 隔离真实 UI 验证安装、编辑、停用/启用、工具发现、失败重试、快照恢复、脱敏导出及断开。
+- 按维护者明确要求发布。Windows Desktop 实机、完整宿主重启持久化与生产 ToolRuntime UI 调用尚未验收；CI 不等于 Desktop 验收，#146 保持开放。详见 docs/ACCEPTANCE-146-20261020.md。
+
 ## [0.2.75] - 2026-10-17
 
 ### Added
