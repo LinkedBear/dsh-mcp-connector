@@ -217,6 +217,27 @@ test('对话服务未就绪时拒绝 Prompt，且不提前创建会话', async (
   assert.deepEqual(calls, []);
 });
 
+test('服务延迟就绪后同一入口可创建工作区会话，服务移除后再次拒绝', async () => {
+  const plugin = await loadClient();
+  const { ctx, registrations, calls } = clientContext({ nativeSidebar: true });
+  const { workspaces, sessions, get } = ctx;
+  delete ctx.workspaces;
+  delete ctx.sessions;
+  ctx.get = () => undefined;
+  plugin.apply(ctx);
+  const props = registrations.get('main').options.inject();
+  await assert.rejects(() => props.startPromptSession('test'), /工作空间/);
+  assert.deepEqual(calls, []);
+  Object.assign(ctx, { workspaces, sessions, get });
+  await props.startPromptSession('test');
+  assert.deepEqual(calls, [
+    ['connectWorkspace', 'workspace-1'], ['setDraft', 'test'], ['open', 'session-new'],
+  ]);
+  ctx.get = () => undefined;
+  await assert.rejects(() => props.startPromptSession('must not create'), /尚未就绪/);
+  assert.equal(calls.length, 3);
+});
+
 test('客户端入口不依赖 Host 版本特有的 Store、Runtime 或 UI Primitives 模块', async () => {
   await assert.doesNotReject(() => loadClient());
   const source = await readFile(new URL('../lib/client.js', import.meta.url), 'utf8');
