@@ -7,11 +7,48 @@ const uiSource = normalizeLineEndings(await readFile(new URL('../ui/index.html',
 const clientSource = normalizeLineEndings(await readFile(new URL('../lib/client.js', import.meta.url), 'utf8'));
 const harnessSource = normalizeLineEndings(await readFile(new URL('../scripts/ui-harness.mjs', import.meta.url), 'utf8'));
 
+test('已安装工具详情保留实际传输类型，stdio 不误标远程服务', () => {
+  const start = uiSource.indexOf('    async showConnectionTools(key) {');
+  const end = uiSource.indexOf('    async showDetail(', start);
+  assert.match(uiSource.slice(start, end), /servers: \[\{ transport: record\.transport \}\]/);
+  const labelStart = uiSource.indexOf('  function connectionLabels(d) {');
+  const labelEnd = uiSource.indexOf('  function cardHtml(', labelStart);
+  const labels = new Function(uiSource.slice(labelStart, labelEnd) + '; return connectionLabels;')();
+  assert.ok(labels({ servers: [{ transport: 'stdio' }] }).includes('运行于 DSH 主机'));
+  assert.ok(labels({ servers: [{ transport: 'streamable-http' }] }).includes('远程服务'));
+});
+
+test('首次连接参数入口仅展示于无凭据 stdio；失败留在原表单重试', () => {
+  const start = uiSource.indexOf('  function openConnectScope(');
+  const end = uiSource.indexOf('  function openScopeManager(', start);
+  let html;
+  const items = {};
+  const open = new Function('marketItems', 'openModal', 'esc', 'connectionLabels', 'scopeFieldHtml',
+    uiSource.slice(start, end) + '; return openConnectScope;')(items, (_title, body) => { html = body; }, String, () => [], () => '<scope>');
+  for (const [id, authMode, server, allowed] of [
+    ['local', 'none', { transport: 'stdio' }, true],
+    ['remote', 'none', { transport: 'streamable-http' }, false],
+    ['oauth', 'oauth2-pkce', { transport: 'stdio' }, false],
+    ['key', 'api-key', { transport: 'stdio' }, false],
+    ['binding', 'none', { transport: 'stdio', credentialBindings: { TOKEN: 'key' } }, false],
+    ['dingtalk', 'none', { transport: 'stdio' }, false],
+  ]) {
+    items[id] = { id, name: id, authMode, servers: [server] };
+    open(id);
+    assert.equal(html.includes('id="initial-local-overrides"'), allowed, id);
+  }
+  const connectStart = uiSource.indexOf('    async connect(connectorId) {');
+  const connectEnd = uiSource.indexOf('    confirmConnect()', connectStart);
+  const connect = uiSource.slice(connectStart, connectEnd);
+  assert.match(connect, /localOverrides \? \{ localOverrides \} : \{\}/);
+  assert.ok(connect.indexOf('if (r.ok) {') < connect.indexOf('closeModal();'));
+});
+
 test('已安装页说明旧授权检测的作用域，并为非健康连接提供重新连接入口', () => {
   assert.ok(uiSource.includes('>检测企查查旧授权</button>'), '按钮文案应限定为企查查旧授权');
   assert.ok(!uiSource.includes('>检测旧插件</button>'), '不应保留含义过宽的旧文案');
   assert.ok(uiSource.includes('title="扫描企查查旧 OAuth 插件'), '按钮应通过 title 说明扫描范围与不删除原凭据');
-  assert.ok(uiSource.includes("window.__mcp.reconnect('${key}')"), '已安装列表应提供重新连接入口');
+  assert.ok(uiSource.includes('window.__mcp.reconnect(${keyJs})'), '已安装列表应提供重新连接入口');
   assert.ok(uiSource.includes("call('reconnect', { key }"), '重新连接应调用同源 API');
   assert.ok(uiSource.includes("'🔄 重新连接'"), '状态未知且已配置的详情主按钮应改为重新连接');
 });
@@ -44,7 +81,8 @@ test('市场卡片恢复紧凑信息量，运行提示为短标签，完整说�
   const end = uiSource.indexOf('  function actionHtml(', start);
   const source = uiSource.slice(start, end);
   const escape = (value) => String(value).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;');
-  const render = new Function('esc', 'isImageIcon', 'actionHtml', source + '; return cardHtml;')(escape, () => false, () => '<button>详情</button>');
+  const render = new Function('esc', 'jsString', 'isImageIcon', 'actionHtml',
+    source + '; return cardHtml;')(escape, (value) => escape(JSON.stringify(String(value))), () => false, () => '<button>详情</button>');
   const remote = { id: 'qcc', name: '企查查', summary: '企业工商信息', vendor: '长提供方说明', servers: [{ transport: 'streamable-http' }] };
   const html = render(remote);
   assert.match(html, /class="name"/);
@@ -119,7 +157,7 @@ test('实时详情采用只读缓存、重连补同步与请求合并，已安�
   assert.match(uiSource, /source.addEventListener\('ready', scheduleStatusRefresh\)/);
   assert.match(uiSource, /cachedOnly: true/);
   assert.match(uiSource, /if \(statusRefreshRunning\) return/);
-  assert.match(uiSource, /showConnectionTools\('/);
+  assert.match(uiSource, /showConnectionTools\(\$\{keyJs\}\)/);
 });
 
 test('宿主原生面板填满 main 区域，兼容弹窗和截图 harness 保持 800px 尺寸', () => {
@@ -334,7 +372,7 @@ test('新连接显示 project/global 目标，范围变更先预览影响再应�
   assert.match(uiSource, /可选择任一 Workspace/);
   assert.match(uiSource, /所有项目（全局）/);
   assert.match(uiSource, /function openConnectScope\(connectorId\)/);
-  assert.match(uiSource, /call\('connect', \{ connectorId, \.\.\.scopeParams \}/);
+  assert.ok(uiSource.includes("call('connect', { connectorId, ...scopeParams, ...(localOverrides ? { localOverrides } : {}) }"));
   assert.match(uiSource, /call\('previewConnectionScope'/);
   assert.match(uiSource, /preview\.detail\.impact\?\.servers/);
   assert.match(uiSource, /expectedRevision: preview\.detail\.baseRevision/);

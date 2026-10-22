@@ -2,6 +2,29 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)；首个公开版本从 `0.1.0` 开始。
 
+## [0.2.77] - 2026-10-22
+
+### Security
+
+- 从 PR #174 独立提取内联事件参数转义修复：先编码 JavaScript 字符串，再编码 HTML 属性，防止目录/连接标识中的特殊字符形成脚本注入。感谢 Marek Vrbka 的报告与修复。
+- 回归测试直接读取生产 UI 的转义函数；隔离真实浏览器通过 28 个事件/载荷组合，并复现旧转义方式的对照问题。验证不访问真实 DSH API、凭据或用户连接。
+- 本次不包含 #174 的国际化改造；既有 Windows Desktop 等验收待办保持开放。
+
+## [0.2.76] - 2026-10-20
+
+### Added / Fixed
+
+- 无凭据市场 stdio 连接可在首次安装及已安装界面设置本地 argsAppend/env/cwd；保留目录来源和连接身份，支持脱敏编辑、快照恢复、失败重试及停用保持。
+- 串行处理首次安装、编辑、停用和断开，防止迟到启动恢复过期状态；持久化与回滚双重失败保留恢复快照并返回安全提示。
+- 修正已安装工具详情将 stdio 错标为远程服务的问题。
+- 不开放 OAuth、凭据绑定、CLI 桥接或完整参数替换。
+
+### Verification and known limitations
+
+- 完整 check（含隔离真实 MCP bridge）：427 passed / 4 skipped / 0 failed；89 个发布文件检查通过。
+- macOS 隔离真实 UI 验证安装、编辑、停用/启用、工具发现、失败重试、快照恢复、脱敏导出及断开。
+- 按维护者明确要求发布。Windows Desktop 实机、完整宿主重启持久化与生产 ToolRuntime UI 调用尚未验收；CI 不等于 Desktop 验收，#146 保持开放。详见 docs/ACCEPTANCE-146-20261020.md。
+
 ## [0.2.75] - 2026-10-17
 
 ### Added

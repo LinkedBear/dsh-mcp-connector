@@ -543,6 +543,7 @@
     configure: 145_000,
     importJson: 145_000,
     reconfigureConnection: 145_000,
+    applyLocalOverrides: 145_000,
     installFromUrl: 145_000,
     setEnabled: 130_000,
     setInjectionMode: 30_000,
@@ -733,6 +734,15 @@
 
   function esc(s) {
     return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+
+  // 内联事件属性里的字符串实参必须是「JS 字符串字面量」再按 HTML 属性转义：
+  // HTML 解析器会先把 &#39; 解回 '，所以只做 HTML 转义会让单引号逃逸出字符串，
+  // 形成 stored XSS（例如 id 为 x');alert(1)// 的目录条目）。
+  // JSON.stringify 负责 JS 层转义（引号、反斜杠、控制字符），esc 负责属性层转义，
+  // 两层配合后无论值里有什么，浏览器解析出来都只是一个普通字符串字面量。
+  function jsString(value) {
+    return esc(JSON.stringify(String(value ?? '')));
   }
 
   function isImageIcon(value) {
@@ -1398,7 +1408,7 @@
     const probe = d.probeStatus && d.probeStatus !== 'unverified' ? `<span class="badge ${esc(d.probeStatus)}">${d.probeStatus}</span>` : '';
     const runtimeLabel = d.id === 'dingtalk' ? '本地 CLI' : (d.servers || []).some((s) => s.transport === 'stdio') ? '本地运行' : '';
     const runtimeTag = runtimeLabel ? `<span class="runtime-tag" title="包含运行于 DSH 主机的服务；授权和权限要求请查看详情">${runtimeLabel}</span>` : '';
-    return `<div class="card ${d.featured ? 'featured' : ''}" data-id="${esc(d.id)}" role="button" tabindex="0" aria-label="查看 ${esc(d.name)} 详情" onclick="window.__mcp.showDetail('${esc(d.id)}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();window.__mcp.showDetail('${esc(d.id)}')}">
+    return `<div class="card ${d.featured ? 'featured' : ''}" data-id="${esc(d.id)}" role="button" tabindex="0" aria-label="查看 ${esc(d.name)} 详情" onclick="window.__mcp.showDetail(${jsString(d.id)})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();window.__mcp.showDetail(${jsString(d.id)})}">
       <div class="icon">${icon}</div>
       <div class="content">
         <div class="name">${esc(d.name)} ${probe} ${runtimeTag}</div>
@@ -1410,36 +1420,37 @@
 
   function actionHtml(d) {
     const id = esc(d.id);
+    const idJs = jsString(d.id);
     const configured = d.connected?.length > 0;
     const incomplete = configured && d.connectionComplete === false;
     const state = d.connectionState || (configured ? 'configured' : 'disconnected');
     if (incomplete && ['bearer', 'api-key'].includes(d.authMode)) {
-      return `<button class="btn ghost" type="button" onclick="event.stopPropagation();window.__mcp.showDetail('${id}')">${t('details')}</button><button class="btn status-warning" type="button" onclick="event.stopPropagation();window.__mcp.openConfig('${id}')">${t('completeSetup')}</button>`;
+      return `<button class="btn ghost" type="button" onclick="event.stopPropagation();window.__mcp.showDetail(${idJs})">${t('details')}</button><button class="btn status-warning" type="button" onclick="event.stopPropagation();window.__mcp.openConfig(${idJs})">${t('completeSetup')}</button>`;
     }
     if (incomplete && d.authMode === 'oauth2-pkce') {
-      return `<button class="btn ghost" type="button" onclick="event.stopPropagation();window.__mcp.showDetail('${id}')">${t('details')}</button><button class="btn status-warning" type="button" onclick="event.stopPropagation();window.__mcp.connect('${id}')">${t('upgradeOauth')}</button>`;
+      return `<button class="btn ghost" type="button" onclick="event.stopPropagation();window.__mcp.showDetail(${idJs})">${t('details')}</button><button class="btn status-warning" type="button" onclick="event.stopPropagation();window.__mcp.connect(${idJs})">${t('upgradeOauth')}</button>`;
     }
     if (configured) {
-      if (state === 'healthy') return `<button class="btn ghost" type="button" onclick="event.stopPropagation();window.__mcp.showDetail('${id}')">${t('details')}</button><button class="btn ghost" disabled>${t('connected')}</button>`;
-      if (state === 'unknown') return `<button class="btn ghost" type="button" onclick="event.stopPropagation();window.__mcp.showDetail('${id}')">${t('details')}</button><button class="btn ghost" type="button" onclick="event.stopPropagation();window.__mcp.showDetail('${id}')">${t('unknown')}</button>`;
-      if (state === 'configured') return `<button class="btn ghost" type="button" onclick="event.stopPropagation();window.__mcp.showDetail('${id}')">${t('details')}</button><button class="btn ghost" disabled>${t('configured')}</button>`;
-      if (state === 'disabled') return `<button class="btn ghost" type="button" onclick="event.stopPropagation();window.__mcp.showDetail('${id}')">${t('details')}</button><button class="btn ghost" disabled>${t('disabled')}</button>`;
+      if (state === 'healthy') return `<button class="btn ghost" type="button" onclick="event.stopPropagation();window.__mcp.showDetail(${idJs})">${t('details')}</button><button class="btn ghost" disabled>${t('connected')}</button>`;
+      if (state === 'unknown') return `<button class="btn ghost" type="button" onclick="event.stopPropagation();window.__mcp.showDetail(${idJs})">${t('details')}</button><button class="btn ghost" type="button" onclick="event.stopPropagation();window.__mcp.showDetail(${idJs})">${t('unknown')}</button>`;
+      if (state === 'configured') return `<button class="btn ghost" type="button" onclick="event.stopPropagation();window.__mcp.showDetail(${idJs})">${t('details')}</button><button class="btn ghost" disabled>${t('configured')}</button>`;
+      if (state === 'disabled') return `<button class="btn ghost" type="button" onclick="event.stopPropagation();window.__mcp.showDetail(${idJs})">${t('details')}</button><button class="btn ghost" disabled>${t('disabled')}</button>`;
       if (state === 'reauth') {
         const credentialAuth = ['bearer', 'api-key'].includes(d.authMode);
-        const action = credentialAuth ? `window.__mcp.openConfig('${id}')` : `window.__mcp.showDetail('${id}')`;
-        return `<button class="btn ghost" type="button" onclick="event.stopPropagation();window.__mcp.showDetail('${id}')">${t('details')}</button><button class="btn status-warning" type="button" onclick="event.stopPropagation();${action}">${credentialAuth ? t('reconfigureCredential') : t('reauthorize')}</button>`;
+        const reauthAction = credentialAuth ? `window.__mcp.openConfig(${idJs})` : `window.__mcp.showDetail(${idJs})`;
+        return `<button class="btn ghost" type="button" onclick="event.stopPropagation();window.__mcp.showDetail(${idJs})">${t('details')}</button><button class="btn status-warning" type="button" onclick="event.stopPropagation();${reauthAction}">${credentialAuth ? t('reconfigureCredential') : t('reauthorize')}</button>`;
       }
-      if (state === 'recovering') return `<button class="btn ghost" type="button" onclick="event.stopPropagation();window.__mcp.showDetail('${id}')">${t('details')}</button><button class="btn status-warning" type="button" onclick="event.stopPropagation();window.__mcp.showDetail('${id}')">${t('recovering')}</button>`;
-      if (state === 'degraded') return `<button class="btn ghost" type="button" onclick="event.stopPropagation();window.__mcp.showDetail('${id}')">${t('details')}</button><button class="btn status-warning" type="button" onclick="event.stopPropagation();window.__mcp.showDetail('${id}')">${t('partialError')}</button>`;
-      if (state === 'unavailable') return `<button class="btn ghost" type="button" onclick="event.stopPropagation();window.__mcp.showDetail('${id}')">${t('details')}</button><button class="btn status-bad" type="button" onclick="event.stopPropagation();window.__mcp.showDetail('${id}')">${t('connectionError')}</button>`;
+      if (state === 'recovering') return `<button class="btn ghost" type="button" onclick="event.stopPropagation();window.__mcp.showDetail(${idJs})">${t('details')}</button><button class="btn status-warning" type="button" onclick="event.stopPropagation();window.__mcp.showDetail(${idJs})">${t('recovering')}</button>`;
+      if (state === 'degraded') return `<button class="btn ghost" type="button" onclick="event.stopPropagation();window.__mcp.showDetail(${idJs})">${t('details')}</button><button class="btn status-warning" type="button" onclick="event.stopPropagation();window.__mcp.showDetail(${idJs})">${t('partialError')}</button>`;
+      if (state === 'unavailable') return `<button class="btn ghost" type="button" onclick="event.stopPropagation();window.__mcp.showDetail(${idJs})">${t('details')}</button><button class="btn status-bad" type="button" onclick="event.stopPropagation();window.__mcp.showDetail(${idJs})">${t('connectionError')}</button>`;
     }
     if (d.authMode === 'oauth2-pkce') {
-      return `<button class="btn ghost" type="button" onclick="event.stopPropagation();window.__mcp.showDetail('${id}')">${t('details')}</button><button class="btn" type="button" onclick="event.stopPropagation();window.__mcp.connect('${id}')">${t('connect')}</button>`;
+      return `<button class="btn ghost" type="button" onclick="event.stopPropagation();window.__mcp.showDetail(${idJs})">${t('details')}</button><button class="btn" type="button" onclick="event.stopPropagation();window.__mcp.connect(${idJs})">${t('connect')}</button>`;
     }
     if (d.authMode === 'none') {
-      return `<button class="btn ghost" type="button" onclick="event.stopPropagation();window.__mcp.showDetail('${id}')">${t('details')}</button><button class="btn" type="button" onclick="event.stopPropagation();window.__mcp.connect('${id}')">${t('connect')}</button>`;
+      return `<button class="btn ghost" type="button" onclick="event.stopPropagation();window.__mcp.showDetail(${idJs})">${t('details')}</button><button class="btn" type="button" onclick="event.stopPropagation();window.__mcp.connect(${idJs})">${t('connect')}</button>`;
     }
-    return `<button class="btn ghost" type="button" onclick="event.stopPropagation();window.__mcp.showDetail('${id}')">${t('details')}</button><button class="btn" type="button" onclick="event.stopPropagation();window.__mcp.openConfig('${id}')">${t('configure')}</button>`;
+    return `<button class="btn ghost" type="button" onclick="event.stopPropagation();window.__mcp.showDetail(${idJs})">${t('details')}</button><button class="btn" type="button" onclick="event.stopPropagation();window.__mcp.openConfig(${idJs})">${t('configure')}</button>`;
   }
 
   const EXPLORER_STATUS = { pending: '尚未发现', unknown: 'Host 状态未知', success: '最近发现成功', failed: '最近发现失败' };
@@ -1544,6 +1555,7 @@
 
   function rowHtml(r) {
     const key = esc(r.key);
+    const keyJs = jsString(r.key);
     const canRename = r.canRename === true;
     const canEditConfiguration = r.canEditConfiguration === true;
     const authMode = r.authMode === 'oauth' ? '<span class="badge auth-oauth">OAuth</span>' : `<span class="badge">${esc(r.authMode || 'manual')}</span>`;
@@ -1563,20 +1575,21 @@
         <div class="rmeta">${esc(r.serverName || '')} · ${esc(r.endpoint || r.url || '')}</div>
         ${diagnostic}
       </div>
-      <select class="injection-select" aria-label="${esc(r.name)} 工具注入模式" title="按会话模式不会断开连接，只会默认隐藏业务工具 schema" onchange="window.__mcp.changeInjectionMode('${key}', this.value, this)">
+      <select class="injection-select" aria-label="${esc(r.name)} 工具注入模式" title="按会话模式不会断开连接，只会默认隐藏业务工具 schema" onchange="window.__mcp.changeInjectionMode(${keyJs}, this.value, this)">
         <option value="always" ${injectionMode === 'always' ? 'selected' : ''}>始终注入</option>
         <option value="session" ${injectionMode === 'session' ? 'selected' : ''}>按会话启用（实验）</option>
       </select>
       <label class="switch" title="${enabled ? '停用' : '启用'}" aria-label="${enabled ? '停用' : '启用'} ${esc(r.name)}">
-        <input type="checkbox" ${enabled ? 'checked' : ''} onchange="window.__mcp.toggle('${key}', this.checked)">
+        <input type="checkbox" ${enabled ? 'checked' : ''} onchange="window.__mcp.toggle(${keyJs}, this.checked)">
         <span class="slider"></span>
       </label>
-      ${canEditConfiguration ? `<button class="btn ghost" type="button" onclick="window.__mcp.openEditor('${key}')">编辑配置</button>` : ''}
-      ${canRename ? `<button class="btn ghost" type="button" onclick="window.__mcp.openRename('${key}')">重命名</button>` : ''}
-      ${enabled ? `<button class="btn ghost" type="button" onclick="window.__mcp.showConnectionTools('${key}')">工具</button>` : ''}
-      ${enabled && r.connectionState !== 'healthy' ? `<button class="btn ghost" type="button" title="重新建立 Host 侧条目并复检：不改配置、凭据、范围或注入模式" onclick="window.__mcp.reconnect('${key}')">重新连接</button>` : ''}
-      <button class="btn ghost" type="button" onclick="window.__mcp.openScope('${key}')">范围</button>
-      <button class="btn danger" onclick="window.__mcp.disconnect('${key}')">断开</button>
+      ${canEditConfiguration ? `<button class="btn ghost" type="button" onclick="window.__mcp.openEditor(${keyJs})">编辑配置</button>` : ''}
+      ${r.canEditLocalOverrides ? `<button class="btn ghost" type="button" onclick="window.__mcp.openLocalEditor(${keyJs})">本地参数</button>` : r.hasLocalOverrides ? `<button class="btn ghost" type="button" onclick="window.__mcp.submitLocalOverrides(${keyJs}, true)">清除本地参数</button>` : ''}
+      ${canRename ? `<button class="btn ghost" type="button" onclick="window.__mcp.openRename(${keyJs})">重命名</button>` : ''}
+      ${enabled ? `<button class="btn ghost" type="button" onclick="window.__mcp.showConnectionTools(${keyJs})">工具</button>` : ''}
+      ${enabled && r.connectionState !== 'healthy' ? `<button class="btn ghost" type="button" title="重新建立 Host 侧条目并复检：不改配置、凭据、范围或注入模式" onclick="window.__mcp.reconnect(${keyJs})">重新连接</button>` : ''}
+      <button class="btn ghost" type="button" onclick="window.__mcp.openScope(${keyJs})">范围</button>
+      <button class="btn danger" onclick="window.__mcp.disconnect(${keyJs})">断开</button>
     </div>`;
   }
 
@@ -1669,11 +1682,15 @@
   function openConnectScope(connectorId) {
     const connector = marketItems[connectorId];
     if (!connector) return;
+    const server = connector.servers?.[0];
+    const allowLocalParameters = connector.authMode === 'none' && connectorId !== 'dingtalk'
+      && server?.transport === 'stdio' && !server.oauthTokenEnv && !Object.keys(server.credentialBindings || {}).length;
     openModal(`连接 ${connector.name}`, `
       <input id="scope-connector-id" type="hidden" value="${esc(connectorId)}" />
       <div class="form-note">${connectionLabels(connector).map(esc).join(' · ')}${connector.credentialDescription ? `<p>${esc(connector.credentialDescription)}</p>` : ''}${connectorId === 'dingtalk' ? '<p>企业尚未开放 CLI 或您无法取得授权？可以取消，等待管理员处理，无需反复登录或重启。一键授权也不能绕过企业政策。本版本不会自动发起登录；工具注册不代表已获得全部业务权限。</p>' : ''}</div>
       <div class="form-note"><strong>选择连接影响范围</strong>连接配置与凭据仍只保存一份；项目范围会由 Host 在工具可见性和执行层强制隔离。</div>
       ${scopeFieldHtml()}
+      ${allowLocalParameters ? '<details><summary>高级：首次连接前设置本地参数（可选）</summary><label for="initial-local-overrides">本地参数 JSON</label><textarea id="initial-local-overrides" rows="6" spellcheck="false" placeholder=\'{"argsAppend":[],"env":{},"cwd":""}\'></textarea><div class="field-help">留空使用市场参数（已有连接保留原覆盖）。argsAppend 追加命令参数，env 合并环境变量，cwd 设置工作目录；仅保存在本机。可用于指定浏览器路径或代理。参数可能扩大本地访问权限，请仅填写可信内容；启动失败时保留表单供修改重试。</div></details>' : ''}
       <div class="inline-error" id="modal-error" tabindex="-1"></div>
       <div class="m-actions"><button class="btn ghost" type="button" onclick="window.__mcp.closeModal()">取消</button><button class="btn" type="button" onclick="window.__mcp.confirmConnect()">确认连接</button></div>`);
   }
@@ -1702,7 +1719,7 @@
       <label for="rename-name">连接显示名（必填）</label><input id="rename-name" value="${esc(item.name)}" maxlength="80" autocomplete="off" />
       <label for="rename-server-name">serverName（工具前缀，不可修改）</label><input id="rename-server-name" value="${esc(item.serverName || '')}" disabled />
       <div class="inline-error" id="modal-error" tabindex="-1"></div>
-      <div class="m-actions"><button class="btn ghost" type="button" onclick="window.__mcp.closeModal()">取消</button><button class="btn" type="button" onclick="window.__mcp.submitRename('${esc(key)}')">保存显示名</button></div>`);
+      <div class="m-actions"><button class="btn ghost" type="button" onclick="window.__mcp.closeModal()">取消</button><button class="btn" type="button" onclick="window.__mcp.submitRename(${jsString(key)})">保存显示名</button></div>`);
   }
 
   async function openConnectionEditor(key) {
@@ -1717,7 +1734,21 @@
       <textarea id="edit-connection-json" rows="14" spellcheck="false">${esc(result.detail?.json || '')}</textarea>
       <div class="field-help">提交前会先验证新配置并创建快照。任何校验、启动或保存失败都会保留原连接；连接 key、作用范围与启停状态不变。</div>
       <div class="inline-error" id="modal-error" tabindex="-1"></div>
-      <div class="m-actions"><button class="btn ghost" type="button" onclick="window.__mcp.closeModal()">取消</button><button class="btn" type="button" onclick="window.__mcp.submitReconfigure('${esc(key)}')">${action}</button></div>`);
+      <div class="m-actions"><button class="btn ghost" type="button" onclick="window.__mcp.closeModal()">取消</button><button class="btn" type="button" onclick="window.__mcp.submitReconfigure(${jsString(key)})">${action}</button></div>`);
+  }
+
+  async function openLocalEditor(key) {
+    const item = installedItems.find((candidate) => candidate.key === key);
+    if (!item) return;
+    const result = await call('editableLocalOverrides', { key });
+    if (!result.ok) { showToast(result.message, false); return; }
+    openModal(`本地参数 · ${item.name}`, `
+      <div class="form-note"><strong>仅覆盖本机，无需修改市场目录</strong><code>argsAppend</code> 追加到市场参数末尾；<code>env</code> 合并环境变量；<code>cwd</code> 设置工作目录。命令、连接身份与市场默认值保持不变。参数可能扩大本地访问权限，请仅填写可信内容。</div>
+      <label for="local-overrides-json">本地参数 JSON</label>
+      <textarea id="local-overrides-json" rows="12" spellcheck="false">${esc(result.detail?.json || '')}</textarea>
+      <div class="field-help"><code>&lt;KEEP_EXISTING&gt;</code> 保留本机已有值；删除字段清除该项覆盖。保存会创建快照并重新加载已启用连接，停用连接保持停用；不代表工具调用已验收。</div>
+      <div class="inline-error" id="modal-error" tabindex="-1"></div>
+      <div class="m-actions"><button class="btn ghost" type="button" onclick="window.__mcp.closeModal()">取消</button><button class="btn ghost" type="button" onclick="window.__mcp.submitLocalOverrides(${jsString(key)}, true)">恢复市场参数</button><button class="btn" type="button" onclick="window.__mcp.submitLocalOverrides(${jsString(key)})">保存本地参数</button></div>`);
   }
 
   function openAddConnection(mode = 'json', preset = {}) {
@@ -1784,7 +1815,7 @@
     }
     const items = snapshots.detail?.items || [];
     const snapshotHtml = items.length
-      ? `<div class="snapshot-list">${items.map((item) => `<div class="snapshot-item"><div class="snapshot-copy"><strong>${esc(item.reason)} · ${esc(new Date(item.createdAt).toLocaleString('zh-CN', { hour12: false }))}</strong>${item.existingCount} 条连接${item.absentCount ? ` · 可移除 ${item.absentCount} 条变更后新增连接` : ''}${item.restorable ? '' : ' · OAuth 需重新授权'}</div><button class="btn ghost" type="button" ${item.restorable ? '' : 'disabled'} onclick="window.__mcp.restoreBackup('${esc(item.id)}')">恢复</button></div>`).join('')}</div>`
+      ? `<div class="snapshot-list">${items.map((item) => `<div class="snapshot-item"><div class="snapshot-copy"><strong>${esc(item.reason)} · ${esc(new Date(item.createdAt).toLocaleString('zh-CN', { hour12: false }))}</strong>${item.existingCount} 条连接${item.absentCount ? ` · 可移除 ${item.absentCount} 条变更后新增连接` : ''}${item.restorable ? '' : ' · OAuth 需重新授权'}</div><button class="btn ghost" type="button" ${item.restorable ? '' : 'disabled'} onclick="window.__mcp.restoreBackup(${jsString(item.id)})">恢复</button></div>`).join('')}</div>`
       : '<div class="field-help">还没有本机配置快照。连接、配置、导入、启停和断开前会自动创建，也可立即手动创建。</div>';
     openModal('配置备份', `
       <div class="form-note"><strong>可携带脱敏导出</strong>Token、API Key、Header/env 值、stdio 参数、本地路径与 OAuth Grant 均不会导出；占位符需在目标本机重填，OAuth 需重新授权。</div>
@@ -1831,8 +1862,9 @@
       try { scopeParams = selectedScopeParams(); }
       catch (error) { showModalError(error.message); return; }
       const timeoutMs = marketItems[connectorId]?.authMode === 'oauth2-pkce' ? 310_000 : undefined;
+      const localOverrides = $('#initial-local-overrides')?.value.trim();
       setModalBusy(true, '正在连接…');
-      const r = await call('connect', { connectorId, ...scopeParams }, { timeoutMs });
+      const r = await call('connect', { connectorId, ...scopeParams, ...(localOverrides ? { localOverrides } : {}) }, { timeoutMs });
       setModalBusy(false);
       showToast(r.message, r.ok);
       if (!r.ok) showModalError(r.message);
@@ -1850,6 +1882,18 @@
     openScope(key) { openScopeManager(key); },
     openRename(key) { openRenameConnection(key); },
     async openEditor(key) { await openConnectionEditor(key); },
+    async openLocalEditor(key) { await openLocalEditor(key); },
+    async submitLocalOverrides(key, reset = false) {
+      if (reset && !await confirmDialog({ title: '恢复市场参数', message: '清除本机追加参数、环境变量和工作目录覆盖；已启用连接将重新加载。', confirmLabel: '恢复' })) return;
+      const json = $('#local-overrides-json')?.value || '{}';
+      setModalBusy(true, '正在更新本地参数…');
+      const result = await call('applyLocalOverrides', { key, json, reset });
+      setModalBusy(false);
+      if (!result.ok) { showToast(result.message, false); showModalError(result.message); return; }
+      closeModal();
+      showToast(result.message, true);
+      await loadInstalled();
+    },
     formatEditJson() {
       const input = $('#edit-connection-json');
       if (!input) return;
@@ -2173,6 +2217,7 @@
       await window.__mcp.showDetail(record.connectorId, {
         id: record.connectorId, connectionKey: key, name: record.name, icon: '🔌',
         authMode: record.authMode, connected: [record], connectionState: record.connectionState,
+        servers: [{ transport: record.transport }],
         description: '本机连接的工具发现与参数详情；不会执行工具。',
       });
     },
