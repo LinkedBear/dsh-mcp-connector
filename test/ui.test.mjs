@@ -48,7 +48,7 @@ test('已安装页说明旧授权检测的作用域，并为非健康连接提�
   assert.ok(uiSource.includes('>检测企查查旧授权</button>'), '按钮文案应限定为企查查旧授权');
   assert.ok(!uiSource.includes('>检测旧插件</button>'), '不应保留含义过宽的旧文案');
   assert.ok(uiSource.includes('title="扫描企查查旧 OAuth 插件'), '按钮应通过 title 说明扫描范围与不删除原凭据');
-  assert.ok(uiSource.includes("window.__mcp.reconnect('${key}')"), '已安装列表应提供重新连接入口');
+  assert.ok(uiSource.includes('window.__mcp.reconnect(${keyJs})'), '已安装列表应提供重新连接入口');
   assert.ok(uiSource.includes("call('reconnect', { key }"), '重新连接应调用同源 API');
   assert.ok(uiSource.includes("'🔄 重新连接'"), '状态未知且已配置的详情主按钮应改为重新连接');
 });
@@ -81,7 +81,8 @@ test('市场卡片恢复紧凑信息量，运行提示为短标签，完整说�
   const end = uiSource.indexOf('  function actionHtml(', start);
   const source = uiSource.slice(start, end);
   const escape = (value) => String(value).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;');
-  const render = new Function('esc', 'isImageIcon', 'actionHtml', source + '; return cardHtml;')(escape, () => false, () => '<button>详情</button>');
+  const render = new Function('esc', 'jsString', 'isImageIcon', 'actionHtml',
+    source + '; return cardHtml;')(escape, (value) => escape(JSON.stringify(String(value))), () => false, () => '<button>详情</button>');
   const remote = { id: 'qcc', name: '企查查', summary: '企业工商信息', vendor: '长提供方说明', servers: [{ transport: 'streamable-http' }] };
   const html = render(remote);
   assert.match(html, /class="name"/);
@@ -156,7 +157,7 @@ test('实时详情采用只读缓存、重连补同步与请求合并，已安�
   assert.match(uiSource, /source.addEventListener\('ready', scheduleStatusRefresh\)/);
   assert.match(uiSource, /cachedOnly: true/);
   assert.match(uiSource, /if \(statusRefreshRunning\) return/);
-  assert.match(uiSource, /showConnectionTools\('/);
+  assert.match(uiSource, /showConnectionTools\(\$\{keyJs\}\)/);
 });
 
 test('宿主原生面板填满 main 区域，兼容弹窗和截图 harness 保持 800px 尺寸', () => {
