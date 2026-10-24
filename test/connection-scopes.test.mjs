@@ -100,7 +100,7 @@ function scopeHost(names, { emitFromSchemas = false } = {}) {
   };
   const ctx = {
     tools: {
-      schemas: () => {
+      definitions: () => {
         schemaReads += 1;
         if (emitFromSchemas) emit('tools/change');
         return names.map((name) => ({ name }));
@@ -172,7 +172,7 @@ test('Host 对 project-only 工具同时收窄可见性并在执行层 fail clos
   assert.equal(outside.restrictions.size, 0);
 });
 
-test('作用域同步忽略 schemas 同步触发的嵌套 tools/change，后续独立变更仍生效', () => {
+test('作用域同步忽略名称读取同步触发的嵌套 tools/change，后续独立变更仍生效', () => {
   const projectTool = 'mcp__project-server__read';
   const host = scopeHost([projectTool], { emitFromSchemas: true });
   const outside = host.agent('outside', 'workspace-b');

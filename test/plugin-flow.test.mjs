@@ -65,6 +65,7 @@ function makeToolsRegistry() {
     schemas() {
       return [...defs.values()].map(({ name, description = '', parameters = {} }) => ({ name, description, parameters }));
     },
+    definitions() { return [...defs.values()]; },
     guard(fn) {
       guards.add(fn);
       return () => guards.delete(fn);
