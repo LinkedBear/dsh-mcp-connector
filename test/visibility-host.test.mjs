@@ -43,6 +43,7 @@ for (const delivery of ['native', 'microtask', 'immediate']) {
             let rules = [];
             let bindings = [];
             let reads = 0;
+            let schemaReads = 0;
             let events = 0;
             let pending = 0;
             const stats = {};
@@ -70,10 +71,16 @@ for (const delivery of ['native', 'microtask', 'immediate']) {
             stopEvents = ctx.on('tools/change', () => { events += 1; });
             const instrumented = { tools: {
               schemas() {
-                reads += 1;
-                assert.ok(reads < 10000, 'bounded sentinel: schema event storm');
+                schemaReads += 1;
+                assert.ok(schemaReads < 10000, 'bounded sentinel: schema event storm');
                 return ctx.tools.schemas();
               },
+              ...(typeof ctx.tools.definitions === 'function' ? {
+                definitions() { reads += 1; return ctx.tools.definitions(); },
+              } : {}),
+              ...(typeof ctx.tools.view === 'function' ? {
+                view() { reads += 1; return ctx.tools.view(); },
+              } : {}),
               guard: (fn) => ctx.tools.guard(fn),
               restrict: (...args) => ctx.tools.restrict(...args),
             } };
@@ -143,7 +150,9 @@ for (const delivery of ['native', 'microtask', 'immediate']) {
             await settle();
             for (const agent of agents) assert.equal(agent.ctx.tools.schemas(agent).length, 161);
             stats.totalReads = reads;
+            stats.schemaReads = schemaReads;
             stats.events = events;
+            assert.equal(schemaReads, 0, 'visibility controllers must never deep-clone schemas');
             t.diagnostic(JSON.stringify({ delivery, agents: agents.length, tools: 161, ...stats }));
           } catch (error) {
             failure = error;

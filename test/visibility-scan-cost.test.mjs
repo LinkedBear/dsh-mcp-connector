@@ -31,7 +31,8 @@ function fixture(count = 1) {
     } } };
   });
   const ctx = { tools: {
-    schemas() { reads += 1; return names.map((name) => ({ name })); },
+    definitions() { reads += 1; return names.map((name) => ({ name })); },
+    schemas() { throw new Error('visibility must never read schemas'); },
     restrict() {},
     guard(fn) { guards.add(fn); return () => guards.delete(fn); },
   } };
@@ -147,3 +148,55 @@ test('disabled lifecycle still denies without explicit governance rules', async 
     assert.ok([...host.agents[0].masks][0].has('mcp__acme__read'));
   } finally { controller.dispose(); }
 });
+
+for (const api of ['definitions', 'legacy-view']) {
+  test(`schema-read microtask feedback is severed via ${api}; real changes are still enforced`, async () => {
+    const host = fixture(3);
+    let schemaCalls = 0;
+    host.ctx.tools.schemas = () => {
+      schemaCalls++;
+      assert.ok(schemaCalls < 25, 'residual feedback loop must not reach the sentinel');
+      queueMicrotask(() => host.emit('tools/change'));
+      return [];
+    };
+    if (api === 'legacy-view') {
+      const definitions = host.ctx.tools.definitions;
+      host.ctx.tools.view = () => {
+        const names = definitions().map((definition) => definition.name);
+        return { visible: new Map(names.map((name) => [name, null])),
+          knownNames: new Set(names), restrictableNames: new Set(names) };
+      };
+      delete host.ctx.tools.definitions;
+    }
+    const state = {
+      records: [{ key: 'a', connectorId: 'acme', serverName: 'acme', injectionMode: 'session' }],
+      rules: [{ scope: 'connection', connectorId: 'acme', effect: 'deny' }],
+      bindings: [{ connectionKey: 'a', global: false, projects: ['inside'] }],
+    };
+    const all = controllers(host, state);
+    try {
+      all.forEach((controller) => controller.mountAgents(host.agentCtx));
+      // One external caller reads a schema and thereby creates a notification.
+      // The visibility listeners must not feed it back into another schema read.
+      host.ctx.tools.schemas();
+      await Promise.resolve();
+      await host.settle();
+      assert.equal(schemaCalls, 1);
+      host.setNames(['mcp__acme__read', 'mcp__acme__new']);
+      await host.settle();
+      for (const agent of host.agents) {
+        assert.equal(agent.masks.size, 3);
+        for (const mask of agent.masks) assert.ok(mask.has('mcp__acme__new'));
+      }
+      // An incompatible Host must preserve the last restrictions, not clear
+      // them as if the tool registry had become empty.
+      host.ctx.tools.definitions = () => { throw new Error('incompatible Host'); };
+      host.emit('tools/change');
+      for (const agent of host.agents) {
+        assert.equal(agent.masks.size, 3);
+        for (const mask of agent.masks) assert.ok(mask.has('mcp__acme__new'));
+      }
+      assert.equal(schemaCalls, 1);
+    } finally { all.forEach((controller) => controller.dispose()); }
+  });
+}
