@@ -2,6 +2,20 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)；首个公开版本从 `0.1.0` 开始。
 
+## [0.2.79] - 2026-10-24
+
+### Fixed
+
+- #178：治理、项目作用域和会话注入刷新改为轻量名称读取，不再调用 tools.schemas() 深克隆参数，切断 schema 读取副作用引起的延迟事件回路。
+- 默认全局/always 且无 deny 或停用连接时跳过清单读取；项目隔离每轮只读取一次，不按 Agent 数重复。
+- 保留执行 guard、工具增删感知和权限交集；名称读取失败时保留已有限制，不把错误当空清单，也不回退 schema 扫描。
+
+### Compatibility and verification
+
+- 优先使用上游公开 definitions()；已发布旧 Host 通过集中、只读、形状校验的内部 view() 兼容层读取名称。内部接口属于兼容风险，增加 Windows/Linux × Host 0.2.1-rc.2/rc.3 契约门禁；不修改宿主安装。
+- 增加同步、微任务、下一轮事件交付及残余 schema 反馈回路回归。详见 docs/ACCEPTANCE-178-20261024.md。
+- 本次是工具运行时机制修复；报告者 Windows Desktop UI 的原始卡顿与 1.29 亿次调用对照仍需复测，#178 保留跟踪。不包含延期的国际化或其他草案功能。
+
 ## [0.2.78] - 2026-10-22
 
 ### Fixed
