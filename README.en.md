@@ -30,13 +30,19 @@ Tool browsing does not execute target tools. Parameter summaries may omit comple
 [![Registry connectors](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fduhu2000%2Fdsh-mcp-connector-registry%2Fmain%2Fcatalog-stats.json&query=%24.registryCount&label=Registry%20connectors&color=5865f2)](https://github.com/duhu2000/dsh-mcp-connector-registry/blob/main/catalog-stats.json)
 [![Marketplace cards](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fduhu2000%2Fdsh-mcp-connector-registry%2Fmain%2Fcatalog-stats.json&query=%24.marketCount&label=Marketplace%20cards&color=16a34a)](https://github.com/duhu2000/dsh-mcp-connector-registry/blob/main/catalog-stats.json)
 
-## Start in 30 seconds
+## Get started
+
+Search for **`dsh-mcp-connector`** in your plugin marketplace, or run the command below. Default Desktop and Web installations both use the `web` profile; custom deployments should use the profile actually loaded by their host.
 
 ```bash
 dsh plugin --profile web add dsh-mcp-connector
 ```
 
 Fully restart DeepSeek Harness Desktop or `dsh web` after installation or upgrade, then open **MCP Connector** in the primary sidebar, or open it directly from **Settings → Plugins → Plugin Configuration → MCP Connector**.
+
+For Desktop, fully quit and relaunch the application. For Web, stop the existing `dsh web` process and start it again; refreshing the browser does not reload backend plugins.
+
+**Complete one task first:** [look up one company's profile](docs/tutorials/ONE-SUCCESS-CASE.md) (Chinese), checking authorization, tool source, and the actual result. For an independent review, use the [community sharing kit](docs/tutorials/SHARING-KIT.md) (Chinese): demo assets, an article outline, and a redacted evidence template.
 
 For a first successful use, confirm the connection and scope in Installed, find the expected tool and source in Tools, then complete one provider-permitted read-only call through the normal DSH Host approval flow. Cached visibility alone does not prove that a service is currently callable.
 
@@ -100,7 +106,7 @@ As of 2026-10-24, the public Registry publishes 112 connector descriptors. After
 | Connection diagnostics and last-success cache |  |
 | ![Connection diagnostics](https://raw.githubusercontent.com/duhu2000/dsh-mcp-connector/main/docs/screenshots/07-connection-diagnostics.png) |  |
 
-Assets `01`–`04` preserve the historical `v0.2.37` marketplace snapshot. Assets `05`–`07` and the 43-second walkthrough come from the current `v0.2.46` credential-free UI harness. The harness mirrors the real 800px product panel, producing two cards per desktop row. It shows only public marketplace metadata, example prompts, and explicitly marked mock tool descriptions—never credentials, local paths, or query results. See [`docs/screenshots/README.md`](docs/screenshots/README.md) for provenance.
+Assets `01`, `02`, `04`, and `07` are `v0.2.73` demos captured on 2026-10-16; `03` retains a historical `v0.2.37` snapshot; `05`, `06`, and the 43-second GIF retain `v0.2.46` demos. All are credential-free Mock UI harness assets, not evidence of real business acceptance on the current version. They contain no credentials, local paths, or query results. See [`docs/screenshots/README.md`](docs/screenshots/README.md) for provenance.
 
 ## Installation
 
