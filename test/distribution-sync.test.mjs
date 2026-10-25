@@ -108,6 +108,55 @@ test('parses the connector and npm source from the dshopen index', () => {
   });
 });
 
+test('rejects dshopen registry lookalikes, userinfo and non-root paths', () => {
+  const registryUrls = [
+    'https://registry.npmjs.org.attacker.test/',
+    'https://registry.npmjs.org@attacker.test/',
+    'https://user@registry.npmjs.org/',
+    'https://registry.npmjs.org/package/',
+    'http://registry.npmjs.org/',
+  ];
+  for (const registry of registryUrls) {
+    const parsed = parseDshopen({
+      format: 1,
+      plugins: [{
+        name: 'dsh-mcp-connector',
+        versions: [{ version: '0.2.81', source: { type: 'npm', registry } }],
+      }],
+    });
+    assert.equal(parsed.npmPublished, false, registry);
+    assert.equal(parsed.detail, 'format 1 index; npm source invalid', registry);
+    assert.equal(assessTarget({ target, canonicalVersion: '0.2.81', parsed }).status, 'invalid', registry);
+  }
+});
+
+test('rejects malformed or missing dshopen indexes', () => {
+  assert.deepEqual(parseDshopen(null), {
+    observedVersion: null,
+    detail: 'unsupported index format: missing',
+  });
+  assert.deepEqual(parseDshopen({ format: 2, plugins: [] }), {
+    observedVersion: null,
+    detail: 'unsupported index format: 2',
+  });
+  assert.deepEqual(parseDshopen({ format: 1 }), {
+    observedVersion: null,
+    detail: 'index.json has no plugins array',
+  });
+  assert.deepEqual(parseDshopen({ format: 1, plugins: [] }), {
+    observedVersion: null,
+    detail: 'connector entry is missing',
+  });
+  const missingRelease = parseDshopen({
+    format: 1,
+    plugins: [{ name: 'dsh-mcp-connector' }],
+  });
+  assert.equal(missingRelease.observedVersion, null);
+  assert.equal(missingRelease.npmPublished, false);
+  assert.equal(missingRelease.detail, 'format 1 index; npm source missing');
+  assert.equal(assessTarget({ target, canonicalVersion: '0.2.81', parsed: missingRelease }).status, 'missing');
+});
+
 test('parses structured public directory pages', () => {
   const html = '<script type="application/ld+json">{"identifier":"dsh-mcp-connector","codeRepository":"https://github.com/duhu2000/dsh-mcp-connector","version":"0.2.41"}</script><a href="https://www.npmjs.com/package/dsh-mcp-connector">npm</a>';
   assert.deepEqual(parseJsonLdPage(html), {

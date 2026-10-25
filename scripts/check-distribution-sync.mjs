@@ -83,17 +83,32 @@ export function parseDshfind(payload) {
 }
 
 export function parseDshopen(payload) {
+  if (payload?.format !== 1) {
+    return { observedVersion: null, detail: `unsupported index format: ${payload?.format ?? 'missing'}` };
+  }
   const plugins = payload?.plugins;
   if (!Array.isArray(plugins)) return { observedVersion: null, detail: 'index.json has no plugins array' };
   const plugin = plugins.find((candidate) => candidate?.name === PACKAGE_NAME);
   if (!plugin) return { observedVersion: null, detail: 'connector entry is missing' };
   const release = Array.isArray(plugin.versions) ? plugin.versions[0] : null;
-  const npmPublished = release?.source?.type === 'npm'
-    && String(release?.source?.registry ?? '').startsWith('https://registry.npmjs.org');
+  let officialRegistry = false;
+  try {
+    const registry = new URL(release?.source?.registry);
+    officialRegistry = registry.origin === 'https://registry.npmjs.org'
+      && registry.username === ''
+      && registry.password === ''
+      && registry.pathname === '/'
+      && registry.search === ''
+      && registry.hash === '';
+  } catch {
+    officialRegistry = false;
+  }
+  const npmPublished = release?.source?.type === 'npm' && officialRegistry;
+  const sourceState = npmPublished ? 'present' : release?.source ? 'invalid' : 'missing';
   return {
     observedVersion: normalizeVersion(release?.version),
     npmPublished,
-    detail: `format ${payload?.format ?? 'unknown'} index; npm source ${npmPublished ? 'present' : 'missing'}`,
+    detail: `format ${payload.format} index; npm source ${sourceState}`,
   };
 }
 
