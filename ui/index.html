@@ -445,6 +445,22 @@
     .category-chips { flex-wrap: wrap; }
   }
 
+  .sharing-experience { color: var(--text); font-size: 13px; }
+  .sharing-experience h2 { font-size: 16px; }
+  .sharing-experience p { color: var(--muted); line-height: 1.6; }
+  .sharing-experience-form, .sharing-experience-steps { display: grid; gap: 12px; }
+  .sharing-experience-field { display: grid; gap: 6px; min-width: 0; }
+  .sharing-experience-field input, .sharing-experience-field textarea, .sharing-experience-field select {
+    box-sizing: border-box; width: 100%; min-width: 0; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--card); color: var(--text); font: inherit;
+  }
+  .sharing-experience-field textarea { min-height: 90px; resize: vertical; }
+  .sharing-experience-step { display: grid; grid-template-columns: minmax(0, 1fr) 90px; gap: 10px; }
+  .sharing-experience-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+  .sharing-experience-actions button { border: 1px solid var(--line); border-radius: 8px; background: var(--card); color: var(--text); padding: 8px 12px; cursor: pointer; font: inherit; }
+  .sharing-experience-actions button:disabled { opacity: .55; cursor: not-allowed; }
+  .sharing-experience :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .sharing-experience-preview { white-space: pre-wrap; overflow-wrap: anywhere; padding: 12px; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; font-size: 12px; }
+  .mcp-safe-template-share [hidden] { display: none !important; }
   /* Scrollbar */
   main::-webkit-scrollbar, .detail-body::-webkit-scrollbar, .tools-list::-webkit-scrollbar { width: 6px; }
   main::-webkit-scrollbar-track, .detail-body::-webkit-scrollbar-track, .tools-list::-webkit-scrollbar-track { background: transparent; }
@@ -467,6 +483,7 @@
     </div>
     <button class="icon-btn primary" id="add-connection" type="button">＋ 添加连接</button>
     <button class="icon-btn" id="refresh" title="刷新连接器目录">刷新连接器目录</button>
+    <button class="icon-btn" id="first-use" type="button">首次使用</button>
     <div class="market-nav" id="market-nav" aria-label="市场分类导航"></div>
   </header>
   <main id="main"></main>
@@ -619,6 +636,9 @@
   const WORKSPACE_CONTEXT_RESULT_TYPE = 'mcp-connector:workspace-context';
   let promptRequestId = null;
   let promptRequestTimer = null;
+  let draftHandoff = null;
+  let sharingDispose = null;
+  let sharingSequence = 0;
   let initialHealthCheckStarted = false;
   let communityCtaEligible = false;
   let communityCtaDismissed = false;
@@ -767,8 +787,137 @@
     clearTimeout(promptRequestTimer);
     promptRequestTimer = null;
     promptRequestId = null;
+    if (draftHandoff) {
+      const completion = draftHandoff;
+      draftHandoff = null;
+      if (ok) completion.resolve();
+      else completion.reject(new Error(message || 'Host 未确认草稿写入'));
+    }
     setPromptLaunchPending(false);
+    const firstUseResult = $('#first-use-result');
+    if (firstUseResult) firstUseResult.textContent = ok ? '已带入草稿，尚未发送或调用工具。请在 DSH 会话中核对后自行发送。' : (message || '打开新会话失败，请检查工作区后重试');
+    const firstUseLaunch = $('#first-use-launch');
+    if (firstUseLaunch) firstUseLaunch.disabled = !$('#first-use-consent')?.checked;
     showToast(message || (ok ? '已带入新会话' : '打开新会话失败，请重试'), ok);
+  }
+
+  // First-use integration boundary: read-only cache inspection, explicit draft handoff only.
+  let firstUseSequence = 0;
+  const FIRST_USE_PROMPT = '使用 qcc-company 的 get_company_profile，只查询“企查查科技股份有限公司”的企业简介（searchKey 为完整企业名称）。先核对当前工具来源、参数、账号权限及费用；不明确时停止并询问我。遵守 Host 审批，不绕过权限。仅调用一次；不要查询联系人、司法、财务或其他主体，不要写入任何数据。成功后列出实际返回的企业名称、简介摘要、数据来源和调用时间；缺失字段标为未返回。失败则报告错误，不自动扩大查询或连续重试。';
+
+  function firstUseReadiness(status, tools) {
+    if (!status?.ok || !tools?.ok) return { ready: false, message: '读取状态失败，请稍后重试；不能据此判断授权或业务调用成功。' };
+    if (!status.detail?.items?.length) return { ready: false, message: '当前范围没有连接。请先到市场选择服务，或添加你自己的连接，并按服务商要求完成授权。' };
+    const matches = (tools.detail?.items || []).filter((item) => item.serverName === 'qcc-company' && item.name === 'get_company_profile');
+    if (!matches.length) return { ready: false, message: '未发现示例所需的 qcc-company / get_company_profile。到工具页检查连接和重新发现；不要求使用企查查，也不要猜测替代工具。' };
+    if (matches.length !== 1) return { ready: false, message: '发现多个同名工具来源。请先到工具页核对连接范围与来源，避免把任务交给错误服务。' };
+    const match = matches[0];
+    return { ready: true, message: `缓存中找到示例工具${match.stale ? '（缓存已过期）' : ''}；最近发现：${match.observedAt ? new Date(match.observedAt).toLocaleString('zh-CN', { hour12: false }) : '未知'}。缓存不是授权、当前可用性或业务成功的证明。` };
+  }
+
+  function firstUseNavigate(target) {
+    closeModal();
+    view = target; searchQuery = ''; searchInput.value = '';
+    explorerFilter = { connectionKey: '', serverName: '', status: '' }; explorerOffset = 0;
+    pendingViewScroll = null; main.scrollTop = 0;
+    syncTabs(); refresh();
+  }
+
+  function openSharingDraft(text) {
+    if (window.parent === window || !currentWorkspace) return Promise.reject(new Error('请在 DSH 中选择工作区后重试'));
+    if (promptRequestId !== null || draftHandoff) return Promise.reject(new Error('上一条草稿请求尚未完成，请稍后重试'));
+    if (typeof text !== 'string' || !text.trim()) return Promise.reject(new Error('草稿不能为空'));
+    return new Promise((resolve, reject) => {
+      draftHandoff = { resolve, reject };
+      try { window.__mcp.sendPrompt(text); }
+      catch (error) { draftHandoff = null; reject(error); }
+    });
+  }
+
+  async function openSharingExperience() {
+    openModal('整理使用体验 · 仅本地草稿', '<p class="field-help">请勿填写业务原文、账号或凭据。关闭面板会清除未带出的编辑内容。分享完全自愿，不会自动发布。</p><div id="sharing-root" role="region" aria-label="使用体验编辑器">正在加载…</div><div class="m-actions"><button class="btn ghost" type="button" onclick="window.__mcp.closeModal()">关闭</button></div>');
+    const sequence = sharingSequence;
+    const root = $('#sharing-root');
+    try {
+      const { mount } = await import('./sharing-experience.js');
+      if (sequence !== sharingSequence || root !== $('#sharing-root') || !$('#modalMask').classList.contains('show')) return;
+      sharingDispose = mount(root, { openDraft: openSharingDraft, showMessage: (text, type) => showToast(text, type !== 'error') });
+    } catch {
+      if (sequence === sharingSequence && root === $('#sharing-root')) root.textContent = '体验编辑器加载失败；请关闭后重试。未读取业务数据，也未发送消息。';
+    }
+  }
+
+  async function openSafeTemplate() {
+    openModal('安全连接模板 · 预览后自行分享', '<p class="field-help">仅生成公开目录引用或全重填的 HTTP 模板，不读取真实连接。复制与下载仅在你点击后执行，不会自动导入或连接。</p><div id="safe-template-root" role="region" aria-label="安全模板编辑器">正在读取随包公开目录…</div><div class="m-actions"><button class="btn ghost" type="button" onclick="window.__mcp.closeModal()">关闭</button></div>');
+    const sequence = sharingSequence;
+    const root = $('#safe-template-root');
+    try {
+      const [{ mount }, references] = await Promise.all([
+        import('./connection-template-sharing.js'),
+        call('templateCatalogReferences', {}),
+      ]);
+      if (sequence !== sharingSequence || root !== $('#safe-template-root') || !$('#modalMask').classList.contains('show')) return;
+      if (!references.ok || !Array.isArray(references.detail?.items)) throw new Error('目录不可用');
+      sharingDispose = mount(root, {
+        catalogReferences: references.detail.items,
+        openDraft: openSharingDraft,
+        showMessage: (text, type) => showToast(text, type !== 'error'),
+      });
+    } catch {
+      if (sequence === sharingSequence && root === $('#safe-template-root')) root.textContent = '安全模板加载失败，请关闭后重试。未读取连接或生成可分享内容。';
+    }
+  }
+
+  async function openFirstUse() {
+    const sequence = ++firstUseSequence;
+    const workspace = viewStateKey();
+    openModal('首次使用 · 试一次只读任务', `
+      <p class="field-help">从连接到一次可核对的结果。此入口只读取状态与工具缓存，不授权、不执行工具、不发送消息。</p>
+      <ol class="field-help">
+        <li><strong>安装：</strong>入口已打开，不代表 Host 与工具全流程已验收。</li>
+        <li><strong>授权：</strong>检查当前项目范围、服务商账号权限和额度。</li>
+        <li><strong>工具发现：</strong>核对工具来源和参数；缓存不等于实时可调用。</li>
+        <li><strong>业务调用：</strong>在 DSH 中自行发送并按 Host 审批，只有真实返回与目标一致才算成功。本面板不自动判成功。</li>
+      </ol>
+      <p id="first-use-result" class="field-help" role="status" aria-live="polite">正在读取当前范围…</p>
+      <details><summary>查看只读任务示例</summary><pre class="tool-schema">${esc(FIRST_USE_PROMPT)}</pre></details>
+      <p class="field-help">示例：一次企业简介查询。插件开源不代表服务商免费；只读也可能收费。无需上传业务数据或完整日志。</p>
+      <label class="field-help"><input id="first-use-consent" type="checkbox" disabled /> 我会核对账号权限、费用及参数；带入草稿后由我自行发送，保留 Host 审批。</label>
+      <div class="m-actions">
+        <button class="btn ghost" id="first-use-market" type="button">去市场连接</button>
+        <button class="btn ghost" id="first-use-tools" type="button">查找工具／检查连接</button>
+        <button class="btn ghost" id="first-use-retry" type="button">重新读取状态</button>
+        <button class="btn ghost" id="first-use-sharing" type="button">整理使用体验</button>
+        <button class="btn ghost" id="first-use-template" type="button">生成安全连接模板</button>
+        <button class="btn" id="first-use-launch" type="button" disabled>带入 DSH 会话草稿</button>
+        <button class="btn ghost" type="button" onclick="window.__mcp.closeModal()">关闭</button>
+      </div>`);
+    $('#first-use-market').onclick = () => firstUseNavigate('market');
+    $('#first-use-tools').onclick = () => firstUseNavigate('tools');
+    $('#first-use-retry').onclick = openFirstUse;
+    $('#first-use-sharing').onclick = openSharingExperience;
+    $('#first-use-template').onclick = openSafeTemplate;
+    const [status, tools] = await Promise.all([
+      call('status', workspaceParams()),
+      call('toolExplorer', { ...workspaceParams(), serverName: 'qcc-company', query: 'get_company_profile', limit: 100 }),
+    ]);
+    if (sequence !== firstUseSequence || workspace !== viewStateKey() || !$('#first-use-result')) return;
+    const readiness = firstUseReadiness(status, tools);
+    $('#first-use-result').textContent = readiness.message;
+    const consent = $('#first-use-consent');
+    const launch = $('#first-use-launch');
+    consent.disabled = !readiness.ready;
+    consent.onchange = () => { launch.disabled = !readiness.ready || !consent.checked || promptRequestId !== null; };
+    launch.onclick = () => {
+      if (!readiness.ready || !consent.checked || promptRequestId !== null) return;
+      if (window.parent === window || !currentWorkspace) {
+        $('#first-use-result').textContent = '请在正常 DSH Web／Desktop 中选择工作区后重试。未创建会话、未发送任务。';
+        return;
+      }
+      launch.disabled = true;
+      $('#first-use-result').textContent = '正在带入会话草稿；尚未发送或调用工具…';
+      window.__mcp.sendPrompt(FIRST_USE_PROMPT);
+    };
   }
 
   function normalizeWorkspaceOptions(input) {
@@ -1126,6 +1275,8 @@
   }
 
   function openModal(title, bodyHtml) {
+    sharingSequence++;
+    if (sharingDispose) { sharingDispose(); sharingDispose = null; }
     lastModalFocus = document.activeElement;
     $('#modal').innerHTML = `<h3 id="modal-title">${esc(title)}</h3>${bodyHtml}`;
     $('#modalMask').classList.add('show');
@@ -1182,6 +1333,9 @@
       <div class="m-actions"><button class="btn ghost" type="button" onclick="window.__mcp.closeModal()">关闭</button></div>`);
   }
   function closeModal() {
+    sharingSequence++;
+    if (sharingDispose) { sharingDispose(); sharingDispose = null; }
+    firstUseSequence++;
     explorerDetailSequence++;
     $('#modalMask').classList.remove('show');
     $('#modalMask').setAttribute('aria-hidden', 'true');
@@ -2619,6 +2773,7 @@
     refresh();
   });
 
+  $('#first-use').addEventListener('click', openFirstUse);
   if (viewStateReady) restoreViewState();
   requestWorkspaceContext();
   connectStatusEvents();

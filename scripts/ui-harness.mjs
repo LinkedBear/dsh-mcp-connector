@@ -5,7 +5,7 @@ import { readFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { normalizeConnectorDescriptor } from '../lib/schema.js';
-import { auditDescriptor, auditRawDescriptor, mergeCatalog } from '../lib/catalog.js';
+import { auditDescriptor, auditRawDescriptor, mergeCatalog, bundledTemplateReferences } from '../lib/catalog.js';
 import { normalizeGovernanceMutation, publicToolName, resolveGovernancePolicy } from '../lib/governance.js';
 import { ConnectionScopeService, bindingForConnection, scopeLabel } from '../lib/connection-scopes.js';
 import { browseToolCatalog, createToolCatalogRecord } from '../lib/tool-catalog-cache.js';
@@ -179,6 +179,14 @@ const server = createServer(async (req, res) => {
     const body = await readFile(join(root, 'ui/index.html'));
     res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' }); res.end(body); return;
   }
+  if (req.method === 'GET' && req.url === '/mcp-connector/ui/sharing-experience.js') {
+    const body = await readFile(join(root, 'ui/sharing-experience.js'));
+    res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8' }); res.end(body); return;
+  }
+  if (req.method === 'GET' && req.url === '/mcp-connector/ui/connection-template-sharing.js') {
+    const body = await readFile(join(root, 'ui/connection-template-sharing.js'));
+    res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8' }); res.end(body); return;
+  }
   const assetName = req.url?.match(/^\/mcp-connector\/ui\/assets\/([^/?#]+)$/)?.[1];
   if (req.method === 'GET' && assetName && bundledAssets.has(assetName)) {
     const body = await readFile(join(root, 'ui/assets', assetName));
@@ -199,6 +207,9 @@ const server = createServer(async (req, res) => {
   const chunks = [];
   for await (const chunk of req) chunks.push(chunk);
   const { method, params = {} } = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+  if (method === 'templateCatalogReferences') {
+    json(res, { ok: true, detail: { items: bundledTemplateReferences() } }); return;
+  }
   if (method === 'catalog') {
     json(res, { ok: true, detail: { items: catalog.map((item) => ({
       ...item,
