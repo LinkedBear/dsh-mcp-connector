@@ -76,10 +76,24 @@ jobs:
           {stdio:'inherit',env:{...process.env,DSH_HOST_INTEGRATION_ANCHOR:anchor}});
           if(r.error)throw r.error;process.exit(r.status??1)"
 
+  fresh-install:
+    name: Fresh generation install (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - run: npm install --global pnpm@11.1.1 --ignore-scripts
+      - run: node scripts/check-fresh-install.mjs
+
   pr-package:
     name: PR test package
     if: github.event_name == 'pull_request'
-    needs: [test, windows, zod-compat, host-visibility]
+    needs: [test, windows, zod-compat, host-visibility, fresh-install]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
