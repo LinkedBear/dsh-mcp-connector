@@ -467,6 +467,7 @@
     </div>
     <button class="icon-btn primary" id="add-connection" type="button">＋ 添加连接</button>
     <button class="icon-btn" id="refresh" title="刷新连接器目录">刷新连接器目录</button>
+    <button class="icon-btn" id="first-use" type="button">首次使用</button>
     <div class="market-nav" id="market-nav" aria-label="市场分类导航"></div>
   </header>
   <main id="main"></main>
@@ -768,7 +769,81 @@
     promptRequestTimer = null;
     promptRequestId = null;
     setPromptLaunchPending(false);
+    const firstUseResult = $('#first-use-result');
+    if (firstUseResult) firstUseResult.textContent = ok ? '已带入草稿，尚未发送或调用工具。请在 DSH 会话中核对后自行发送。' : (message || '打开新会话失败，请检查工作区后重试');
+    const firstUseLaunch = $('#first-use-launch');
+    if (firstUseLaunch) firstUseLaunch.disabled = !$('#first-use-consent')?.checked;
     showToast(message || (ok ? '已带入新会话' : '打开新会话失败，请重试'), ok);
+  }
+
+  // First-use integration boundary: read-only cache inspection, explicit draft handoff only.
+  let firstUseSequence = 0;
+  const FIRST_USE_PROMPT = '使用 qcc-company 的 get_company_profile，只查询“企查查科技股份有限公司”的企业简介（searchKey 为完整企业名称）。先核对当前工具来源、参数、账号权限及费用；不明确时停止并询问我。遵守 Host 审批，不绕过权限。仅调用一次；不要查询联系人、司法、财务或其他主体，不要写入任何数据。成功后列出实际返回的企业名称、简介摘要、数据来源和调用时间；缺失字段标为未返回。失败则报告错误，不自动扩大查询或连续重试。';
+
+  function firstUseReadiness(status, tools) {
+    if (!status?.ok || !tools?.ok) return { ready: false, message: '读取状态失败，请稍后重试；不能据此判断授权或业务调用成功。' };
+    if (!status.detail?.items?.length) return { ready: false, message: '当前范围没有连接。请先到市场选择服务，或添加你自己的连接，并按服务商要求完成授权。' };
+    const matches = (tools.detail?.items || []).filter((item) => item.serverName === 'qcc-company' && item.name === 'get_company_profile');
+    if (!matches.length) return { ready: false, message: '未发现示例所需的 qcc-company / get_company_profile。到工具页检查连接和重新发现；不要求使用企查查，也不要猜测替代工具。' };
+    if (matches.length !== 1) return { ready: false, message: '发现多个同名工具来源。请先到工具页核对连接范围与来源，避免把任务交给错误服务。' };
+    const match = matches[0];
+    return { ready: true, message: `缓存中找到示例工具${match.stale ? '（缓存已过期）' : ''}；最近发现：${match.observedAt ? new Date(match.observedAt).toLocaleString('zh-CN', { hour12: false }) : '未知'}。缓存不是授权、当前可用性或业务成功的证明。` };
+  }
+
+  function firstUseNavigate(target) {
+    closeModal();
+    view = target; searchQuery = ''; searchInput.value = '';
+    explorerFilter = { connectionKey: '', serverName: '', status: '' }; explorerOffset = 0;
+    pendingViewScroll = null; main.scrollTop = 0;
+    syncTabs(); refresh();
+  }
+
+  async function openFirstUse() {
+    const sequence = ++firstUseSequence;
+    const workspace = viewStateKey();
+    openModal('首次使用 · 试一次只读任务', `
+      <p class="field-help">从连接到一次可核对的结果。此入口只读取状态与工具缓存，不授权、不执行工具、不发送消息。</p>
+      <ol class="field-help">
+        <li><strong>安装：</strong>入口已打开，不代表 Host 与工具全流程已验收。</li>
+        <li><strong>授权：</strong>检查当前项目范围、服务商账号权限和额度。</li>
+        <li><strong>工具发现：</strong>核对工具来源和参数；缓存不等于实时可调用。</li>
+        <li><strong>业务调用：</strong>在 DSH 中自行发送并按 Host 审批，只有真实返回与目标一致才算成功。本面板不自动判成功。</li>
+      </ol>
+      <p id="first-use-result" class="field-help" role="status" aria-live="polite">正在读取当前范围…</p>
+      <details><summary>查看只读任务示例</summary><pre class="tool-schema">${esc(FIRST_USE_PROMPT)}</pre></details>
+      <p class="field-help">示例：一次企业简介查询。插件开源不代表服务商免费；只读也可能收费。无需上传业务数据或完整日志。</p>
+      <label class="field-help"><input id="first-use-consent" type="checkbox" disabled /> 我会核对账号权限、费用及参数；带入草稿后由我自行发送，保留 Host 审批。</label>
+      <div class="m-actions">
+        <button class="btn ghost" id="first-use-market" type="button">去市场连接</button>
+        <button class="btn ghost" id="first-use-tools" type="button">查找工具／检查连接</button>
+        <button class="btn ghost" id="first-use-retry" type="button">重新读取状态</button>
+        <button class="btn" id="first-use-launch" type="button" disabled>带入 DSH 会话草稿</button>
+        <button class="btn ghost" type="button" onclick="window.__mcp.closeModal()">关闭</button>
+      </div>`);
+    $('#first-use-market').onclick = () => firstUseNavigate('market');
+    $('#first-use-tools').onclick = () => firstUseNavigate('tools');
+    $('#first-use-retry').onclick = openFirstUse;
+    const [status, tools] = await Promise.all([
+      call('status', workspaceParams()),
+      call('toolExplorer', { ...workspaceParams(), serverName: 'qcc-company', query: 'get_company_profile', limit: 100 }),
+    ]);
+    if (sequence !== firstUseSequence || workspace !== viewStateKey() || !$('#first-use-result')) return;
+    const readiness = firstUseReadiness(status, tools);
+    $('#first-use-result').textContent = readiness.message;
+    const consent = $('#first-use-consent');
+    const launch = $('#first-use-launch');
+    consent.disabled = !readiness.ready;
+    consent.onchange = () => { launch.disabled = !readiness.ready || !consent.checked || promptRequestId !== null; };
+    launch.onclick = () => {
+      if (!readiness.ready || !consent.checked || promptRequestId !== null) return;
+      if (window.parent === window || !currentWorkspace) {
+        $('#first-use-result').textContent = '请在正常 DSH Web／Desktop 中选择工作区后重试。未创建会话、未发送任务。';
+        return;
+      }
+      launch.disabled = true;
+      $('#first-use-result').textContent = '正在带入会话草稿；尚未发送或调用工具…';
+      window.__mcp.sendPrompt(FIRST_USE_PROMPT);
+    };
   }
 
   function normalizeWorkspaceOptions(input) {
@@ -1182,6 +1257,7 @@
       <div class="m-actions"><button class="btn ghost" type="button" onclick="window.__mcp.closeModal()">关闭</button></div>`);
   }
   function closeModal() {
+    firstUseSequence++;
     explorerDetailSequence++;
     $('#modalMask').classList.remove('show');
     $('#modalMask').setAttribute('aria-hidden', 'true');
@@ -2619,6 +2695,7 @@
     refresh();
   });
 
+  $('#first-use').addEventListener('click', openFirstUse);
   if (viewStateReady) restoreViewState();
   requestWorkspaceContext();
   connectStatusEvents();
