@@ -2,6 +2,14 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)；首个公开版本从 `0.1.0` 开始。
 
+## [0.2.80] - 2026-10-25
+
+### Fixed
+
+- #181：将 Zod 从宿主 peer 改为插件直接依赖（^4.1.8），全新 generation 安装无需借用宿主 asar 或手工创建共享 profiles/node_modules。保留 React 和 @deepseek-ai/* 宿主 peer，不放宽宿主隔离校验。
+- 增加 Windows/Linux 全新打包安装门禁：禁用 peer 自动安装，无共享依赖目录，对照 0.2.79 缺失依赖并验证新包提升到 live 后 Zod 的真实路径与实际消费者导入。
+- 该门禁是隔离安装测试，不等于 Windows Desktop 插件管理器 UI 实机验收；#178 仍待原报告者 Windows 性能复测。
+
 ## [0.2.79] - 2026-10-24
 
 ### Fixed
