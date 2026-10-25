@@ -216,6 +216,46 @@ test('mount calls openDraft only after the explicit user click and dispose remov
   assert.equal(root.children.length, 0);
 });
 
+test('invalid versions keep the template selector and rendered content on the active template', async () => {
+  const document = new FakeDocument();
+  const root = new FakeElement('div', document);
+  const messages = [];
+  mount(root, {
+    openDraft: async () => {},
+    showMessage: (text, type) => messages.push({ text, type }),
+  });
+
+  const elements = root.walk();
+  const template = elements.find((element) => (
+    element.tagName === 'SELECT'
+    && element.children.some((child) => child.value === 'jsonMigration')
+  ));
+  const inputs = elements.filter((element) => element.tagName === 'INPUT');
+  const task = inputs[0];
+  const pluginVersion = inputs[2];
+  const preview = elements.find((element) => element.className === 'sharing-experience-preview');
+  const initialPreview = preview.textContent;
+
+  pluginVersion.value = 'latest';
+  template.value = 'jsonMigration';
+  await template.dispatch('change');
+
+  assert.equal(template.value, 'companyProfile');
+  assert.equal(task.value, SHARING_CASE_TEMPLATES.companyProfile.task);
+  assert.equal(preview.textContent, initialPreview);
+  assert.equal(messages.at(-1).type, 'error');
+  assert.match(messages.at(-1).text, /语义版本/);
+  assert.match(messages.at(-1).text, /模板未切换，请纠正后重试/);
+
+  pluginVersion.value = '0.2.81';
+  template.value = 'jsonMigration';
+  await template.dispatch('change');
+
+  assert.equal(template.value, 'jsonMigration');
+  assert.equal(task.value, SHARING_CASE_TEMPLATES.jsonMigration.task);
+  assert.notEqual(preview.textContent, initialPreview);
+});
+
 test('module source has no network, storage, telemetry, clipboard or connection access', async () => {
   const source = await readFile(new URL('../ui/sharing-experience.js', import.meta.url), 'utf8');
   for (const forbidden of [
