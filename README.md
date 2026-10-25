@@ -30,13 +30,19 @@ OAuth 是否可用取决于服务商的客户端注册、账号权限与授权�
 [![Registry connectors](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fduhu2000%2Fdsh-mcp-connector-registry%2Fmain%2Fcatalog-stats.json&query=%24.registryCount&label=Registry%20connectors&color=5865f2)](https://github.com/duhu2000/dsh-mcp-connector-registry/blob/main/catalog-stats.json)
 [![Marketplace cards](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fduhu2000%2Fdsh-mcp-connector-registry%2Fmain%2Fcatalog-stats.json&query=%24.marketCount&label=Marketplace%20cards&color=16a34a)](https://github.com/duhu2000/dsh-mcp-connector-registry/blob/main/catalog-stats.json)
 
-## 30 秒开始
+## 开始使用
+
+在插件市场搜索完整包名 **`dsh-mcp-connector`**，或在本机终端运行下方命令。当前默认 Desktop 和 Web 都使用 `web` profile；自定义部署请以宿主实际加载的 profile 为准。
 
 ```bash
 dsh plugin --profile web add dsh-mcp-connector
 ```
 
 安装或升级后完全重启 DeepSeek Harness Desktop 或 `dsh web`，然后打开左侧「MCP连接器」；也可从“设置 → 插件 → 插件配置 → MCP连接器”直接打开。
+
+Desktop 需要完全退出并重新启动应用；Web 需要停止原 `dsh web` 进程再启动，只刷新网页不会重新加载后端插件。
+
+**先完成一件事：**[查询一家企业的简介](docs/tutorials/ONE-SUCCESS-CASE.md)，按步骤核对授权、工具来源和真实返回。想写体验文章？使用[社区分享素材包](docs/tutorials/SHARING-KIT.md)，包含演示素材、文章提纲和脱敏记录模板。
 
 首次使用建议依次确认：连接已保存且范围正确 → “工具”页能找到预期工具与来源 → 在正常 DSH 会话中通过 Host 审批链完成一次服务商许可的只读调用。缓存可见不等于当前服务可调用。
 
@@ -102,7 +108,7 @@ dsh plugin --profile web add dsh-mcp-connector
 | 连接诊断与最后成功缓存 |  |
 | ![连接诊断](https://raw.githubusercontent.com/duhu2000/dsh-mcp-connector/main/docs/screenshots/07-connection-diagnostics.png) |  |
 
-`01`–`04` 保留 `v0.2.37` 的历史市场快照，`05`–`07` 与 43 秒演示来自 `v0.2.46` 当前无凭据 UI harness。桌面端一行 2 张卡片；只展示公开市场元数据、示例 Prompt 和明确标识的 Mock 工具说明，不包含凭据、本机路径或查询结果。详见 [`docs/screenshots/README.md`](docs/screenshots/README.md)。
+`01`、`02`、`04`、`07` 为 2026-10-16 的 `v0.2.73` 演示；`03` 保留 `v0.2.37` 历史快照；`05`、`06` 与 43 秒 GIF 保留 `v0.2.46` 演示。全部来自无凭据 Mock UI harness，不是当前版本的真实业务验收证据，不包含凭据、本机路径或查询结果。详见 [`docs/screenshots/README.md`](docs/screenshots/README.md)。
 
 ## 安装
 
