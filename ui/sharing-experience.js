@@ -296,6 +296,8 @@ export function mount(root, { openDraft, showMessage } = {}) {
     option.value = value;
     template.append(option);
   }
+  let activeTemplateId = 'companyProfile';
+  template.value = activeTemplateId;
   templateLabel.append(template);
   form.append(templateLabel);
   const task = addLabeledInput(document, form, '任务', draft.task);
@@ -379,13 +381,22 @@ export function mount(root, { openDraft, showMessage } = {}) {
   }
 
   function handleTemplateChange() {
-    const versions = { dsh: dshVersion.value, plugin: pluginVersion.value, host: host.value };
-    draft = createSharingExperienceFromTemplate(template.value, versions);
-    task.value = draft.task;
-    limitations.value = draft.limitations.join('\n');
-    renderStepControls();
-    preview.textContent = renderSharingExperiencePreview(draft);
-    notify('已载入公开教程模板；所有步骤保持“未测试”，请按实际情况编辑。');
+    const requestedTemplateId = template.value;
+    try {
+      const versions = { dsh: dshVersion.value, plugin: pluginVersion.value, host: host.value };
+      const nextDraft = createSharingExperienceFromTemplate(requestedTemplateId, versions);
+      draft = nextDraft;
+      activeTemplateId = requestedTemplateId;
+      task.value = draft.task;
+      limitations.value = draft.limitations.join('\n');
+      renderStepControls();
+      preview.textContent = renderSharingExperiencePreview(draft);
+      notify('已载入公开教程模板；所有步骤保持“未测试”，请按实际情况编辑。');
+    } catch (error) {
+      template.value = activeTemplateId;
+      const reason = error instanceof SharingExperienceError ? error.message : '无法载入所选模板';
+      notify(`${reason}；模板未切换，请纠正后重试。`, 'error');
+    }
   }
 
   function handlePreviewClick() {
