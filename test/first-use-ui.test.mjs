@@ -42,6 +42,7 @@ function fixture(statusResult, toolsResult) {
   const make = new Function('$', 'call', 'openModal', 'viewStateKey', 'workspaceParams', 'firstUseReadiness', 'firstUseNavigate', 'esc', 'window', `
     let firstUseSequence = 0, promptRequestId = null, currentWorkspace = { workspaceId: 'test' };
     const FIRST_USE_PROMPT = 'fixture draft';
+    const openSharingExperience = () => {};
     ${html.slice(start, end)}
     return { openFirstUse, invalidate: () => firstUseSequence++, noWorkspace: () => currentWorkspace = null };
   `);

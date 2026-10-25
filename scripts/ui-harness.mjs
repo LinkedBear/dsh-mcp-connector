@@ -179,6 +179,10 @@ const server = createServer(async (req, res) => {
     const body = await readFile(join(root, 'ui/index.html'));
     res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' }); res.end(body); return;
   }
+  if (req.method === 'GET' && req.url === '/mcp-connector/ui/sharing-experience.js') {
+    const body = await readFile(join(root, 'ui/sharing-experience.js'));
+    res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8' }); res.end(body); return;
+  }
   const assetName = req.url?.match(/^\/mcp-connector\/ui\/assets\/([^/?#]+)$/)?.[1];
   if (req.method === 'GET' && assetName && bundledAssets.has(assetName)) {
     const body = await readFile(join(root, 'ui/assets', assetName));
