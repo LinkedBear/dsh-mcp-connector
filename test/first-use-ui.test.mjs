@@ -43,6 +43,7 @@ function fixture(statusResult, toolsResult) {
     let firstUseSequence = 0, promptRequestId = null, currentWorkspace = { workspaceId: 'test' };
     const FIRST_USE_PROMPT = 'fixture draft';
     const openSharingExperience = () => {};
+    const openSafeTemplate = () => {};
     ${html.slice(start, end)}
     return { openFirstUse, invalidate: () => firstUseSequence++, noWorkspace: () => currentWorkspace = null };
   `);

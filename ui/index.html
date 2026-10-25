@@ -460,6 +460,7 @@
   .sharing-experience-actions button:disabled { opacity: .55; cursor: not-allowed; }
   .sharing-experience :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   .sharing-experience-preview { white-space: pre-wrap; overflow-wrap: anywhere; padding: 12px; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; font-size: 12px; }
+  .mcp-safe-template-share [hidden] { display: none !important; }
   /* Scrollbar */
   main::-webkit-scrollbar, .detail-body::-webkit-scrollbar, .tools-list::-webkit-scrollbar { width: 6px; }
   main::-webkit-scrollbar-track, .detail-body::-webkit-scrollbar-track, .tools-list::-webkit-scrollbar-track { background: transparent; }
@@ -846,6 +847,27 @@
     }
   }
 
+  async function openSafeTemplate() {
+    openModal('安全连接模板 · 预览后自行分享', '<p class="field-help">仅生成公开目录引用或全重填的 HTTP 模板，不读取真实连接。复制与下载仅在你点击后执行，不会自动导入或连接。</p><div id="safe-template-root" role="region" aria-label="安全模板编辑器">正在读取随包公开目录…</div><div class="m-actions"><button class="btn ghost" type="button" onclick="window.__mcp.closeModal()">关闭</button></div>');
+    const sequence = sharingSequence;
+    const root = $('#safe-template-root');
+    try {
+      const [{ mount }, references] = await Promise.all([
+        import('./connection-template-sharing.js'),
+        call('templateCatalogReferences', {}),
+      ]);
+      if (sequence !== sharingSequence || root !== $('#safe-template-root') || !$('#modalMask').classList.contains('show')) return;
+      if (!references.ok || !Array.isArray(references.detail?.items)) throw new Error('目录不可用');
+      sharingDispose = mount(root, {
+        catalogReferences: references.detail.items,
+        openDraft: openSharingDraft,
+        showMessage: (text, type) => showToast(text, type !== 'error'),
+      });
+    } catch {
+      if (sequence === sharingSequence && root === $('#safe-template-root')) root.textContent = '安全模板加载失败，请关闭后重试。未读取连接或生成可分享内容。';
+    }
+  }
+
   async function openFirstUse() {
     const sequence = ++firstUseSequence;
     const workspace = viewStateKey();
@@ -866,6 +888,7 @@
         <button class="btn ghost" id="first-use-tools" type="button">查找工具／检查连接</button>
         <button class="btn ghost" id="first-use-retry" type="button">重新读取状态</button>
         <button class="btn ghost" id="first-use-sharing" type="button">整理使用体验</button>
+        <button class="btn ghost" id="first-use-template" type="button">生成安全连接模板</button>
         <button class="btn" id="first-use-launch" type="button" disabled>带入 DSH 会话草稿</button>
         <button class="btn ghost" type="button" onclick="window.__mcp.closeModal()">关闭</button>
       </div>`);
@@ -873,6 +896,7 @@
     $('#first-use-tools').onclick = () => firstUseNavigate('tools');
     $('#first-use-retry').onclick = openFirstUse;
     $('#first-use-sharing').onclick = openSharingExperience;
+    $('#first-use-template').onclick = openSafeTemplate;
     const [status, tools] = await Promise.all([
       call('status', workspaceParams()),
       call('toolExplorer', { ...workspaceParams(), serverName: 'qcc-company', query: 'get_company_profile', limit: 100 }),
