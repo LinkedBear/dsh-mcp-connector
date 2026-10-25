@@ -2,6 +2,31 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)；首个公开版本从 `0.1.0` 开始。
 
+## [0.2.82] - 2026-10-26
+
+### Added
+
+- 新增首次使用只读引导，将安装、授权、工具发现/缓存和真实业务调用拆成独立阶段；只读取当前作用域内的状态和缓存，不把“已安装”“有缓存”或“已复制草稿”误判为业务成功。
+- 新增“分享使用体验”草稿编辑器。用户选择公开教程模板、按实际情况填写版本与步骤状态后，只有明确点击才会把脱敏文本带入会话草稿；Host 返回成功前不宣称已带入，失败时保留预览供修正重试。
+- 新增确定性安全连接模板分享。输出只包含白名单允许的固定结构和审核过的公开目录引用；自定义 URL、连接名称、凭据、Header、OAuth Grant、stdio 命令与环境变量不会进入分享结果。
+
+### Changed
+
+- 增强外部分发源审计：以 npm `latest` 为规范版本，严格检查 awesome-dsh-plugin/DSH Market、dshopen 及受监控目录的版本与 npm 安装元数据；`stale`、`invalid`、`missing`、`unavailable` 均不能通过同步门禁。
+- 分发漂移继续由单一自动跟踪项维护；已有目录等待同步或元数据修正时，不重复提交外部上架 PR/Issue。
+
+### Security and privacy
+
+- 所有分享行为均需用户明确操作；插件不会自动发送消息、调用业务工具、公开发帖或上传业务数据。本版本不新增遥测，也不读取完整对话、真实工具返回、账号、凭据或现有连接配置来推断分享状态。
+- 非法版本或模板输入失败时保持选择器、内容和预览一致，并给出可纠正提示，不以半更新界面继续生成草稿。
+
+### Verification scope and known limitations
+
+- 完整 `npm run check`：502 项测试，494 通过、8 项按环境条件跳过、0 失败；99 个发布文件通过白名单以及凭据/本机路径扫描。跳过项不计作通过。
+- 自动化、无凭据 UI harness 与缓存/localhost 合成测试只证明代码路径和安全边界，不替代真实 DSH Host、真实 OAuth、真实连接、付费业务调用或搜索排名验收。
+- 2026-10-16 的企业简介证据只证明当时已有连接完成过一次获准的真实只读调用，不能外推为 v0.2.82 首次安装、首次授权、JSON 迁移、连接恢复或所有业务工具成功。
+- 仓库截图和 GIF 是标注版本的无凭据 Mock 素材；分发版本/安装元数据同步也不等于搜索排名、曝光、安装转化或业务成功。
+
 ## [0.2.81] - 2026-10-25
 
 ### Documentation
@@ -1072,7 +1097,8 @@
 - 外部 URL 与导入 Header 执行安全校验。
 - iframe 消息校验同源和消息来源。
 
-[Unreleased]: https://github.com/duhu2000/dsh-mcp-connector/compare/v0.2.48...HEAD
+[Unreleased]: https://github.com/duhu2000/dsh-mcp-connector/compare/v0.2.82...HEAD
+[0.2.82]: https://github.com/duhu2000/dsh-mcp-connector/compare/v0.2.81...v0.2.82
 [0.2.48]: https://github.com/duhu2000/dsh-mcp-connector/compare/v0.2.47...v0.2.48
 [0.2.47]: https://github.com/duhu2000/dsh-mcp-connector/compare/v0.2.46...v0.2.47
 [0.2.46]: https://github.com/duhu2000/dsh-mcp-connector/compare/v0.2.45...v0.2.46
