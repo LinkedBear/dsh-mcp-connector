@@ -23,9 +23,10 @@ const WHITELIST = [
   /^registry\/connectors\/[^/]+\.json$/,
   /^registry\/schema\/[^/]+\.json$/,
   /^docs\/(?:CLI-PROVIDERS|CONFIG-BACKUP|CONNECTION-SCOPES|DESKTOP-E2E|FIRST-CONTRIBUTION|MARKET-REGISTRATION|PLUGIN-UPDATE|SESSION-TOOL-INJECTION|STDIO-SUPPORT|TOOL-GOVERNANCE|USER-GUIDE)\.md$/,
-  /^docs\/tutorials\/(?:README|FIRST-SUCCESS-SCENARIOS|ONE-SUCCESS-CASE|SHARING-KIT|JSON-MIGRATION|OAUTH-DIAGNOSTICS|TOOL-SEARCH-RECOVERY|TRUSTED-STATUS-COPY)\.md$/,
+  /^docs\/tutorials\/(?:README|FIRST-SUCCESS-SCENARIOS|ONE-SUCCESS-CASE|SHARING-KIT|SHARING-AUTHOR-ASSETS|SHARING-UI-INTEGRATION|JSON-MIGRATION|OAUTH-DIAGNOSTICS|TOOL-SEARCH-RECOVERY|TRUSTED-STATUS-COPY)\.md$/,
   /^docs\/screenshots\/(?:README\.md|assets\.json|[^/]+\.(?:gif|jpe?g|png|svg|webp))$/,
   /^ui\/index\.html$/,
+  /^ui\/sharing-experience\.js$/,
   /^ui\/assets\/[^/]+\.(?:svg|png|webp)$/,
 ];
 
@@ -58,6 +59,8 @@ const requiredTutorials = [
   'docs/tutorials/README.md',
   'docs/tutorials/ONE-SUCCESS-CASE.md',
   'docs/tutorials/SHARING-KIT.md',
+  'docs/tutorials/SHARING-AUTHOR-ASSETS.md',
+  'docs/tutorials/SHARING-UI-INTEGRATION.md',
   'docs/tutorials/FIRST-SUCCESS-SCENARIOS.md',
   'docs/tutorials/JSON-MIGRATION.md',
   'docs/tutorials/OAUTH-DIAGNOSTICS.md',
