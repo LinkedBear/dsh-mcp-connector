@@ -14,6 +14,12 @@ export const DEFAULT_TARGETS = [
     parser: 'awesome',
   },
   {
+    id: 'dshopen',
+    label: 'Open Plugin Market (dshopen)',
+    url: 'https://dshopen.org/index.json',
+    parser: 'dshopen',
+  },
+  {
     id: 'dshfind',
     label: 'dshfind',
     url: 'https://api.dshfind.com/v1/plugins/duhu2000/dsh-mcp-connector',
@@ -30,7 +36,6 @@ export const DEFAULT_TARGETS = [
     label: 'dsh.pub',
     url: 'https://dsh.pub/en/plugins/dsh-mcp-connector/',
     parser: 'json-ld',
-    trackingUrl: 'https://github.com/dsh-pub/dsh-pub/issues/117',
   },
   {
     id: 'dshbase',
@@ -74,6 +79,21 @@ export function parseDshfind(payload) {
     observedVersion: normalizeVersion(install.pkg_version),
     npmPublished: install.npm_published === true && install.pkg_name === PACKAGE_NAME,
     detail: `last synced ${payload?.last_synced_at ?? payload?.as_of ?? 'unknown'}`,
+  };
+}
+
+export function parseDshopen(payload) {
+  const plugins = payload?.plugins;
+  if (!Array.isArray(plugins)) return { observedVersion: null, detail: 'index.json has no plugins array' };
+  const plugin = plugins.find((candidate) => candidate?.name === PACKAGE_NAME);
+  if (!plugin) return { observedVersion: null, detail: 'connector entry is missing' };
+  const release = Array.isArray(plugin.versions) ? plugin.versions[0] : null;
+  const npmPublished = release?.source?.type === 'npm'
+    && String(release?.source?.registry ?? '').startsWith('https://registry.npmjs.org');
+  return {
+    observedVersion: normalizeVersion(release?.version),
+    npmPublished,
+    detail: `format ${payload?.format ?? 'unknown'} index; npm source ${npmPublished ? 'present' : 'missing'}`,
   };
 }
 
@@ -150,6 +170,7 @@ export function assessTarget({ target, canonicalVersion, parsed, error }) {
 
 function parseTarget(target, body) {
   if (target.parser === 'awesome') return parseAwesome(JSON.parse(body));
+  if (target.parser === 'dshopen') return parseDshopen(JSON.parse(body));
   if (target.parser === 'dshfind') return parseDshfind(JSON.parse(body));
   if (target.parser === 'json-ld') return parseJsonLdPage(body);
   if (target.parser === 'dshbase') return parseDshbasePage(body);
