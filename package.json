@@ -22,8 +22,6 @@
     "docs/MARKET-REGISTRATION.md",
     "docs/PLUGIN-UPDATE.md",
     "docs/CONFIG-BACKUP.md",
-    "docs/SHAREABLE-CONNECTION-TEMPLATES.md",
-    "docs/DATA-MCP-CONTRIBUTION-REVIEW.md",
     "docs/CONNECTION-SCOPES.md",
     "docs/TOOL-GOVERNANCE.md",
     "docs/SESSION-TOOL-INJECTION.md",
@@ -44,7 +42,9 @@
     "scripts/probe-connector.mjs",
     "scripts/cli-bridge.mjs",
     "scripts/build-registry.mjs",
-    "scripts/ui-harness.mjs"
+    "scripts/ui-harness.mjs",
+    "docs/DATA-MCP-CONTRIBUTION-REVIEW.md",
+    "docs/SHAREABLE-CONNECTION-TEMPLATES.md"
   ],
   "scripts": {
     "test": "node --test",

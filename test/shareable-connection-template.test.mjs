@@ -237,6 +237,40 @@ test('伪造公开 descriptor 不能把租户标识伪装成已脱敏目录引�
   );
 });
 
+test('严格验证器重新核对包内目录，拒绝伪造 ID 和夹带名称', () => {
+  const { descriptor, server } = bundledWith((item) => item.transport === 'streamable-http');
+  const base = createShareableTemplateFromCatalog({
+    connectorId: descriptor.id,
+    serverKey: server.serverKey,
+  });
+
+  const forgedIdentity = structuredClone(base);
+  forgedIdentity.source.connectorId = 'tenant-secret-abc';
+  forgedIdentity.catalogConnections[0].connectorId = 'tenant-secret-abc';
+  forgedIdentity.catalogConnections[0].name = 'Customer Alpha secret';
+  forgedIdentity.catalogConnections[0].serverName = 'tenant-secret';
+  assert.throws(
+    () => assertShareableConnectionTemplate(forgedIdentity),
+    (error) => error instanceof ShareTemplateSafetyError
+      && error.code === 'CATALOG_NOT_PUBLISHED'
+      && !/tenant-secret|Customer Alpha/.test(error.message),
+  );
+
+  for (const [field, value] of [
+    ['name', 'Customer Alpha secret'],
+    ['serverName', 'tenant-secret'],
+  ]) {
+    const forgedMetadata = structuredClone(base);
+    forgedMetadata.catalogConnections[0][field] = value;
+    assert.throws(
+      () => assertShareableConnectionTemplate(forgedMetadata),
+      (error) => error instanceof ShareTemplateSafetyError
+        && error.code === 'CATALOG_REFERENCE_MISMATCH'
+        && !/tenant-secret|Customer Alpha/.test(error.message),
+    );
+  }
+});
+
 test('无鉴权公网 HTTP 可经既有导入校验归一，仍要求显式确认', () => {
   const template = createShareableTemplateFromConnection(record());
   const preview = previewShareableConnectionTemplate(template);
