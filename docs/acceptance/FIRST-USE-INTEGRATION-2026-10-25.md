@@ -11,7 +11,7 @@
 
 ## 自动化证据
 
-本次集成全量 `npm run check`：501 tests / 493 pass / 8 skipped / 0 fail；打包白名单 99 文件通过。新增 5 项安全模板集成测试验证固定来源、四字段、参数不可注入、UI 输出与后端严格验证器兼容、失败关闭及异步失效。另有 Host ACK、分享体验及首次使用测试。
+本次集成全量 `npm run check`：502 tests / 494 pass / 8 skipped / 0 fail；打包白名单 99 文件通过。新增 5 项安全模板集成测试验证固定来源、四字段、参数不可注入、UI 输出与后端严格验证器兼容、失败关闭及异步失效。另有 Host ACK、分享体验及首次使用测试。
 
 ## 隔离合成 UI（不是正常 Host 验收）
 
@@ -25,15 +25,15 @@
 截图 SHA-256（本地保留，不自动上传）：
 
 ```text
-00b9c2e29f89128dc341ddf1cd1af2ea1dcdb45b2de3d3bb49bfb21dafb2c789  mcp-safe-template-1280.png
-e4e111cced8788ee2d3d0a33d6040274f487eb37e0489cfd57502c942038cead  mcp-safe-template-390.png
+cc77417b18b5ec0110f664cea9820f2e5d7f1422e50c6bfa53985076c56156a9  mcp-safe-template-1280.png
+961423d18e8c822f74b2a97ba9c2c04ad62d5fa0896ed13f966a6be3f218245e  mcp-safe-template-390.png
 bbeed4956dfd800f29b2a7b99928d1c9bee696c33a66c91542c91dcb0a1ca157  mcp-sharing-layout-1280.png
 e3e3ef1d4607d5f458b9680655e9ab57ab37a02790473339326d27908f986e01  mcp-sharing-layout-390.png
 ```
 
 ## 未完成与合并门禁
 
-- #188 的 catalog 序列化出口身份/名称复验修复尚待作者最终 head；当前集成的是 291be35，不能据此标记可发布。
+- 已通过合并提交 628c66e 集成 #188 最终远端 head `3e8f0d2ac10de1f96d86a2607c4a8b88327c9803`，包含 catalog 序列化出口身份/名称复验修复；祖先关系已验证。最终代码全量检查及两尺寸隔离 UI 复测通过。
 - 未证明正常 Host 草稿端到端、首次 OAuth、付费业务调用或当前市场排名。正常 profile 未修改。
 - AutoGLM 登录和真实背景采集限制未被绕过；本轮本地隔离测试有单独授权。
 - 由总控统一审阅、合并与发布，本线不 tag/npm。
